@@ -1,0 +1,17 @@
+spring.application.name: reversegeocoding2
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/qgis
+    username: t1100555
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /
+    operations-sorter: method
+    tags-sorter: alpha
+
+#shapefile.path: jijuk/dw_jijukmap_bg_jijuk_11_a.shp
+shapefile.path: extracted/ext2.shp
