@@ -21,6 +21,7 @@ import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Service
 import java.nio.charset.Charset
 import kotlin.concurrent.thread
+import kotlin.system.measureTimeMillis
 
 val logger = KotlinLogging.logger {}
 
@@ -34,11 +35,9 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
 
     override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
         val point = geometryFactory.createPoint(Coordinate(lat, lon))
-        val candidates: List<*> = rtree.query(point.envelopeInternal)
-        val polygon: MultiPolygon? = candidates
-            .filterIsInstance<MultiPolygon>()
-            .firstOrNull { it.contains(point) }
-
+        val candidates = rtree.query(point.envelopeInternal)
+        val polygons = candidates.filterIsInstance<MultiPolygon>()
+        val polygon = polygons.firstOrNull { it.contains(point) }
         val userData = polygon?.userData as? Array<*>
 
         return SearchResponse(
@@ -66,41 +65,81 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
 
     private fun createRtree() {
         val source: SimpleFeatureSource = store.featureSource
-        logger.info { "Loading polygons from shapefile: $shapefilePath" }
+        logger.info { "Shapefile에서 다각형 로딩 시작: $shapefilePath" }
 
         val dbfReader = DbaseFileReader(ShpFiles(ClassPathResource(shapefilePath).file.absolutePath),
             true, Charset.forName("UTF-8"))
         val dbfHeader: DbaseFileHeader = dbfReader.header
         val colSize: Int = dbfHeader.numFields
-//        for (i in 0 until colSize!!) {
-//            val fieldName = dbfHeader.getFieldName(i)
-//            val fieldType = dbfHeader.getFieldClass(i).toGenericString()
-//            logger.info { "Field $i: $fieldName / $fieldType" }
-//        }
 
         try {
             var cnt = 0L
-            source.features.features().use { features ->
-                while (features.hasNext()) {
-                    val feature = features.next()
-                    val geometry = feature.defaultGeometry as? MultiPolygon
+            var batchStartTime = System.currentTimeMillis()
+            var batchCnt = 0L
+            var totalTime = 0L
 
-                    val dbfRecord = Array<Any?>(colSize) { null }
-                    dbfReader.readEntry(dbfRecord)
+            val creationTime = measureTimeMillis {
+                source.features.features().use { features ->
+                    while (features.hasNext()) {
+                        val feature = features.next()
+                        val geometry = feature.defaultGeometry as? MultiPolygon
 
-                    if (geometry != null) {
-                        geometry.userData = dbfRecord
-                        rtree.insert(geometry.envelopeInternal, geometry)
-                        cnt++
+                        val dbfRecord = Array<Any?>(colSize) { null }
+                        dbfReader.readEntry(dbfRecord)
+
+                        if (geometry != null) {
+                            val insertTime = measureTimeMillis {
+                                geometry.userData = dbfRecord
+                                rtree.insert(geometry.envelopeInternal, geometry)
+                            }
+                            totalTime += insertTime
+                            cnt++
+                            batchCnt++
+
+                            // 1000개마다 배치 처리 시간 로깅
+                            if (batchCnt == 1000L) {
+                                val batchEndTime = System.currentTimeMillis()
+                                val batchDuration = batchEndTime - batchStartTime
+                                logger.info { """
+                                    RTree 배치 처리 완료
+                                    - 현재까지 처리된 다각형 수: $cnt
+                                    - 배치 처리 시간: ${batchDuration}ms
+                                    - 평균 처리 속도: ${1000.0 / batchDuration * 1000} polygons/sec
+                                    - 마지막 1000개 평균 insert 시간: ${totalTime / 1000}ms/polygon
+                                """.trimIndent() }
+                                
+                                batchCnt = 0L
+                                batchStartTime = System.currentTimeMillis()
+                                totalTime = 0L
+                            }
+                        }
                     }
                 }
             }
 
-            logger.info { "Loaded $cnt polygons from shapefile." }
+            // 마지막 배치 처리 로깅
+            if (batchCnt > 0) {
+                val batchEndTime = System.currentTimeMillis()
+                val batchDuration = batchEndTime - batchStartTime
+                logger.info { """
+                    RTree 마지막 배치 처리 완료
+                    - 처리된 다각형 수: $batchCnt
+                    - 배치 처리 시간: ${batchDuration}ms
+                    - 평균 처리 속도: ${batchCnt.toDouble() / batchDuration * 1000} polygons/sec
+                    - 평균 insert 시간: ${totalTime / batchCnt}ms/polygon
+                """.trimIndent() }
+            }
+
+            logger.info { """
+                RTree 생성 완료
+                - 총 로드된 다각형 수: $cnt
+                - 전체 소요 시간: ${creationTime}ms
+                - 전체 평균 처리 속도: ${cnt.toDouble() / creationTime * 1000} polygons/sec
+            """.trimIndent() }
 
             (rtree as? RTree)?.logTreeStats()
         } catch (e: Exception) {
-            logger.error(e) { "Failed to load polygons from shapefile." }
+            logger.error(e) { "Shapefile에서 다각형 로딩 실패" }
         }
     }
 

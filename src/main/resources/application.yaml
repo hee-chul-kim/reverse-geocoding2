@@ -13,5 +13,5 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
 
-#shapefile.path: jijuk/dw_jijukmap_bg_jijuk_11_a.shp
-shapefile.path: extracted/ext3.shp
+shapefile.path: jijuk/dw_jijukmap_bg_jijuk_11_a.shp
+#shapefile.path: extracted/ext3.shp

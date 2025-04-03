@@ -66,3 +66,5 @@ kotlin-ide/
 *.prj
 *.shp
 *.shx
+
+.specstory/
