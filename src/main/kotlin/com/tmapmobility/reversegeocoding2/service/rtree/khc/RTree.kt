@@ -16,7 +16,7 @@ class RTree(
     private val nodeCapacity: Int = 10,
     private val splitStrategy: NodeSplitStrategy = DefaultNodeSplitStrategy()
 ) : SpatialIndex {
-    private var root: RTreeNode? = null
+    var root: RTreeNode? = null
 
     override fun query(range: Envelope): MutableList<Any?> {
         val result = mutableListOf<Any?>()

@@ -4,6 +4,9 @@ import com.tmapmobility.reversegeocoding2.geometryFactory
 import com.tmapmobility.reversegeocoding2.model.SearchResponse
 import com.tmapmobility.reversegeocoding2.service.SearchService
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.geotools.api.data.FileDataStore
@@ -13,6 +16,7 @@ import org.geotools.data.shapefile.dbf.DbaseFileHeader
 import org.geotools.data.shapefile.dbf.DbaseFileReader
 import org.geotools.data.shapefile.files.ShpFiles
 import org.locationtech.jts.geom.Coordinate
+import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.SpatialIndex
 import org.locationtech.jts.index.strtree.STRtree
@@ -24,6 +28,22 @@ import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
 
 val logger = KotlinLogging.logger {}
+
+data class NodeData(
+    val id: String,
+    val isLeaf: Boolean,
+    val mbr: MBRData,
+    val children: List<NodeData>,
+    val depth: Int,
+    val size: Int
+)
+
+data class MBRData(
+    val minX: Double,
+    val minY: Double,
+    val maxX: Double,
+    val maxY: Double
+)
 
 @Service
 class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: String,
@@ -141,6 +161,8 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
         } catch (e: Exception) {
             logger.error(e) { "Shapefile에서 다각형 로딩 실패" }
         }
+
+        dbfReader.close()
     }
 
     private fun initFileDataStore() {
@@ -149,5 +171,54 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
         file.setReadOnly()
         store = FileDataStoreFinder.getDataStore(file) ?:
                 throw IllegalArgumentException("Could not find data store for file: $shapefilePath")
+    }
+
+    fun getTreeVisualizationData(): NodeData? {
+        val tree = rtree as? RTree ?: return null
+        return tree.root?.let { convertToNodeData(it) }
+    }
+
+    private fun convertToNodeData(node: RTreeNode, depth: Int = 0): NodeData {
+        val id = System.identityHashCode(node).toString()
+        return when {
+            depth >= 6 -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.boundingBox),
+                children = emptyList(),
+                depth = depth,
+                size = when (node) {
+                    is RTreeLeafNode -> node.polygons.size
+                    is RTreeInternalNode -> node.children.size
+                    else -> 0
+                }
+            )
+            node is RTreeLeafNode -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.boundingBox),
+                children = emptyList(),
+                depth = depth,
+                size = node.polygons.size
+            )
+            node is RTreeInternalNode -> NodeData(
+                id = id,
+                isLeaf = false,
+                mbr = convertToMBRData(node.boundingBox),
+                children = node.children.map { convertToNodeData(it, depth + 1) },
+                depth = depth,
+                size = node.children.size
+            )
+            else -> throw IllegalStateException("Unknown node type")
+        }
+    }
+
+    private fun convertToMBRData(envelope: Envelope): MBRData {
+        return MBRData(
+            minX = envelope.minX,
+            minY = envelope.minY,
+            maxX = envelope.maxX,
+            maxY = envelope.maxY
+        )
     }
 }

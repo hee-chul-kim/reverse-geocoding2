@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class RTreeFactory {
 
     fun create(): SpatialIndex {
-        //return STRtree(10)
-        return RTree(10, LinearSplitStrategy())
+        //return STRtree(4)
+        return RTree(4, LinearSplitStrategy())
     }
 }

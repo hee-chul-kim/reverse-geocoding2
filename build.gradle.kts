@@ -26,6 +26,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.postgresql:postgresql:42.7.1")
     implementation("org.hibernate.orm:hibernate-core:6.4.1.Final")
     implementation("org.hibernate.orm:hibernate-spatial:6.4.1.Final")

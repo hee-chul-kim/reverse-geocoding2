@@ -4,6 +4,12 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/qgis
     username: t1100555
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
 
 springdoc:
   api-docs:
