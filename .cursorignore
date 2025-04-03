@@ -1,0 +1,63 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Build directories
+build/
+.gradle/
+out/
+target/
+bin/
+
+# IDE specific files
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Kotlin specific
+*.class
+*.log
+*.ctxt
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Dependencies
+node_modules/
+vendor/
+lib/
+dist/
+
+# Generated files
+generated/
+*.generated.*
+*.kt.bak
+*.kts.bak
+
+# Local configuration
+application-local.yml
+application-local.properties
+
+# Logs
+logs/
+*.log
+
+# Test coverage reports
+coverage/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# System Files
+.DS_Store
+Thumbs.db

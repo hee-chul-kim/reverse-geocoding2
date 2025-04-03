@@ -3,7 +3,11 @@ package com.tmapmobility.reversegeocoding2.service.rtree.khc
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
-open class RTreeNode(var boundingBox: Envelope)
+open class RTreeNode(
+    var boundingBox: Envelope,
+    var depth: Int = 0,
+    var parent: RTreeInternalNode? = null
+)
 
 class RTreeLeafNode(var polygons: MutableList<Geometry>) : RTreeNode(computeBoundingBox(polygons)) {
     companion object {
@@ -25,6 +29,13 @@ class RTreeInternalNode(var children: MutableList<RTreeNode>) : RTreeNode(comput
             val maxX = nodes.maxOf { it.boundingBox.maxX }
             val maxY = nodes.maxOf { it.boundingBox.maxY }
             return Envelope(minX, maxX, minY, maxY)
+        }
+    }
+
+    init {
+        children.forEach { child ->
+            child.parent = this
+            child.depth = this.depth + 1
         }
     }
 }

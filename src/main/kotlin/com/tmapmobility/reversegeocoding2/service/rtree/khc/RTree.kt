@@ -40,6 +40,10 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
         } else {
             val leaf = findLeafNode(root!!, polygon)
             leaf.polygons.add(polygon)
+            // 리프 노드의 boundingBox 재계산
+            leaf.boundingBox = RTreeLeafNode.computeBoundingBox(leaf.polygons)
+            // 부모 노드들의 boundingBox도 재계산
+            updateParentBoundingBoxes(leaf)
 
             if (leaf.polygons.size > nodeCapacity) {
                 splitNode(leaf)
@@ -51,7 +55,6 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
         return when (node) {
             is RTreeLeafNode -> node
             is RTreeInternalNode -> {
-                //val bestFit = node.children.minByOrNull { it.boundingBox.minX }
                 val bestFit = bestFit(node.children, polygon)
                 findLeafNode(bestFit, polygon)
             }
@@ -87,7 +90,6 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
             }
         }
 
-        // 가장 멀리 떨어진 두 박스 찾기
         val (box1, box2) = findFarthestPair(boundingBoxes)
 
         val group1 = mutableListOf<Any>()
@@ -103,7 +105,6 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
             val distance1 = powerOfDistanceBetweenBoundingBox(box, box1)
             val distance2 = powerOfDistanceBetweenBoundingBox(box, box2)
 
-            // 두 박스 중 더 가까운 박스에 추가
             if (distance1 < distance2) {
                 group1.add(child)
             } else {
@@ -112,15 +113,27 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
         }
 
         val left = if (node is RTreeLeafNode) {
-            RTreeLeafNode(group1.map { it as Geometry }.toMutableList())
+            RTreeLeafNode(group1.map { it as Geometry }.toMutableList()).apply {
+                depth = node.depth
+                parent = node.parent
+            }
         } else {
-            RTreeInternalNode(group1.map { it as RTreeNode }.toMutableList())
+            RTreeInternalNode(group1.map { it as RTreeNode }.toMutableList()).apply {
+                depth = node.depth
+                parent = node.parent
+            }
         }
 
         val right = if (node is RTreeLeafNode) {
-            RTreeLeafNode(group2.map { it as Geometry }.toMutableList())
+            RTreeLeafNode(group2.map { it as Geometry }.toMutableList()).apply {
+                depth = node.depth
+                parent = node.parent
+            }
         } else {
-            RTreeInternalNode(group2.map { it as RTreeNode }.toMutableList())
+            RTreeInternalNode(group2.map { it as RTreeNode }.toMutableList()).apply {
+                depth = node.depth
+                parent = node.parent
+            }
         }
 
         if (root == node) {
@@ -208,6 +221,14 @@ class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
             else -> {
                 throw IllegalStateException("Unknown node type")
             }
+        }
+    }
+
+    private fun updateParentBoundingBoxes(node: RTreeNode) {
+        var current = node.parent
+        while (current != null) {
+            current.boundingBox = RTreeInternalNode.computeBoundingBox(current.children)
+            current = current.parent
         }
     }
 }

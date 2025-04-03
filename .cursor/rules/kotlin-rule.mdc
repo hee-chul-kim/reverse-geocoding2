@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- 한국어 사용
+- restapi 는  OpenApi description, sample, request, response 등 상세히 작성
+- request model 은 spring validation 사용
+- multi module 프로젝트에서 모듈명 prefix 는 api-, app-, lib-
+- single module api 프로젝트의 필수 패키지 : controller, service, repository, config, enums, aspect
+- java 와 같이 사용할 수 있도록 java 예약어는 사용하지 말 것
