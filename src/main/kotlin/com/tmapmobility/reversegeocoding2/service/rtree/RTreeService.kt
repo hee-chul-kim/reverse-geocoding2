@@ -15,6 +15,7 @@ import org.geotools.data.shapefile.files.ShpFiles
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.SpatialIndex
+import org.locationtech.jts.index.strtree.STRtree
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Service

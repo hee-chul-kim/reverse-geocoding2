@@ -10,7 +10,7 @@ import org.locationtech.jts.geom.Geometry
 
 val logger = KotlinLogging.logger {}
 
-class RTree(private val maxChildren: Int = 10) : SpatialIndex {
+class RTree(private val nodeCapacity: Int = 10) : SpatialIndex {
     private var root: RTreeNode? = null
 
     override fun query(range: Envelope): MutableList<Any?> {
@@ -41,7 +41,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
             val leaf = findLeafNode(root!!, polygon)
             leaf.polygons.add(polygon)
 
-            if (leaf.polygons.size > maxChildren) {
+            if (leaf.polygons.size > nodeCapacity) {
                 splitNode(leaf)
             }
         }
@@ -100,10 +100,11 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
                 else -> throw IllegalArgumentException("Invalid child type")
             }
 
-            val distanceToBox1 = powerOfDistanceToBoundingBox(box, box1)
-            val distanceToBox2 = powerOfDistanceToBoundingBox(box, box2)
+            val distance1 = powerOfDistanceBetweenBoundingBox(box, box1)
+            val distance2 = powerOfDistanceBetweenBoundingBox(box, box2)
 
-            if (distanceToBox1 < distanceToBox2) {
+            // 두 박스 중 더 가까운 박스에 추가
+            if (distance1 < distance2) {
                 group1.add(child)
             } else {
                 group2.add(child)
@@ -129,7 +130,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
             parent.children.remove(node)
             parent.children.addAll(listOf(left, right))
 
-            if (parent.children.size > maxChildren) {
+            if (parent.children.size > nodeCapacity) {
                 splitNode(parent)
             }
         }
@@ -160,7 +161,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
                 val box1 = boundingBoxes[i]
                 val box2 = boundingBoxes[j]
 
-                val distance = powerOfDistanceToBoundingBox(box1, box2)
+                val distance = powerOfDistanceBetweenBoundingBox(box1, box2)
 
                 if (distance > maxDistance) {
                     maxDistance = distance
@@ -172,7 +173,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
         return pair ?: throw IllegalStateException("Bounding box list must have at least two elements")
     }
 
-    fun powerOfDistanceToBoundingBox(box1: Envelope, box2: Envelope): Double {
+    fun powerOfDistanceBetweenBoundingBox(box1: Envelope, box2: Envelope): Double {
         val center1X = (box1.minX + box1.maxX) / 2
         val center1Y = (box1.minY + box1.maxY) / 2
         val center2X = (box2.minX + box2.maxX) / 2
