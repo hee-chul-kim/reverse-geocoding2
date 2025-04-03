@@ -6,6 +6,7 @@ import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.ItemVisitor
 import org.locationtech.jts.index.SpatialIndex
 import com.tmapmobility.reversegeocoding2.util.*
+import org.locationtech.jts.geom.Geometry
 
 val logger = KotlinLogging.logger {}
 
@@ -41,7 +42,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
             leaf.polygons.add(polygon)
 
             if (leaf.polygons.size > maxChildren) {
-                splitLeaf(leaf)
+                splitNode(leaf)
             }
         }
     }
@@ -71,30 +72,55 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
         return minBoxNode
     }
 
-    private fun splitLeaf(leaf: RTreeLeafNode) {
-        val sortedPolygons = leaf.polygons.sortedBy { it.envelopeInternal.minX }
-        val mid = sortedPolygons.size / 2
-        val left = RTreeLeafNode(sortedPolygons.subList(0, mid).toMutableList())
-        val right = RTreeLeafNode(sortedPolygons.subList(mid, sortedPolygons.size).toMutableList())
+    private fun splitNode(node: RTreeNode) {
+        val children = when (node) {
+            is RTreeLeafNode -> node.polygons.toMutableList()
+            is RTreeInternalNode -> node.children.toMutableList()
+            else -> throw IllegalArgumentException("Unknown node type")
+        }
 
-        if (root == leaf) {
-            root = RTreeInternalNode(mutableListOf(left, right))
-        } else {
-            val parent = findParent(root!!, leaf) as RTreeInternalNode
-            parent.children.remove(leaf)
-            parent.children.addAll(listOf(left, right))
-
-            if (parent.children.size > maxChildren) {
-                splitInternal(parent)
+        val boundingBoxes = children.map {
+            when (it) {
+                is Geometry -> it.envelopeInternal
+                is RTreeNode -> it.boundingBox
+                else -> throw IllegalArgumentException("Invalid child type")
             }
         }
-    }
 
-    private fun splitInternal(node: RTreeInternalNode) {
-        val sortedChildren = node.children.sortedBy { it.boundingBox.minX }
-        val mid = sortedChildren.size / 2
-        val left = RTreeInternalNode(sortedChildren.subList(0, mid).toMutableList())
-        val right = RTreeInternalNode(sortedChildren.subList(mid, sortedChildren.size).toMutableList())
+        // 가장 멀리 떨어진 두 박스 찾기
+        val (box1, box2) = findFarthestPair(boundingBoxes)
+
+        val group1 = mutableListOf<Any>()
+        val group2 = mutableListOf<Any>()
+
+        children.forEach { child ->
+            val box = when (child) {
+                is Geometry -> child.envelopeInternal
+                is RTreeNode -> child.boundingBox
+                else -> throw IllegalArgumentException("Invalid child type")
+            }
+
+            val distanceToBox1 = powerOfDistanceToBoundingBox(box, box1)
+            val distanceToBox2 = powerOfDistanceToBoundingBox(box, box2)
+
+            if (distanceToBox1 < distanceToBox2) {
+                group1.add(child)
+            } else {
+                group2.add(child)
+            }
+        }
+
+        val left = if (node is RTreeLeafNode) {
+            RTreeLeafNode(group1.map { it as Geometry }.toMutableList())
+        } else {
+            RTreeInternalNode(group1.map { it as RTreeNode }.toMutableList())
+        }
+
+        val right = if (node is RTreeLeafNode) {
+            RTreeLeafNode(group2.map { it as Geometry }.toMutableList())
+        } else {
+            RTreeInternalNode(group2.map { it as RTreeNode }.toMutableList())
+        }
 
         if (root == node) {
             root = RTreeInternalNode(mutableListOf(left, right))
@@ -104,7 +130,7 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
             parent.children.addAll(listOf(left, right))
 
             if (parent.children.size > maxChildren) {
-                splitInternal(parent)
+                splitNode(parent)
             }
         }
     }
@@ -123,6 +149,42 @@ class RTree(private val maxChildren: Int = 10) : SpatialIndex {
 
     override fun remove(itemEnv: Envelope?, item: Any?): Boolean {
         TODO("Not yet implemented")
+    }
+
+    fun findFarthestPair(boundingBoxes: List<Envelope>): Pair<Envelope, Envelope> {
+        var maxDistance = -1.0
+        var pair: Pair<Envelope, Envelope>? = null
+
+        for (i in boundingBoxes.indices) {
+            for (j in i + 1 until boundingBoxes.size) {
+                val box1 = boundingBoxes[i]
+                val box2 = boundingBoxes[j]
+
+                val distance = powerOfDistanceToBoundingBox(box1, box2)
+
+                if (distance > maxDistance) {
+                    maxDistance = distance
+                    pair = Pair(box1, box2)
+                }
+            }
+        }
+
+        return pair ?: throw IllegalStateException("Bounding box list must have at least two elements")
+    }
+
+    fun powerOfDistanceToBoundingBox(box1: Envelope, box2: Envelope): Double {
+        val center1X = (box1.minX + box1.maxX) / 2
+        val center1Y = (box1.minY + box1.maxY) / 2
+        val center2X = (box2.minX + box2.maxX) / 2
+        val center2Y = (box2.minY + box2.maxY) / 2
+
+        // 비교에는 제곱근 필요 없어서 제곱으로 계산
+        val distance = (
+                (center2X - center1X) * (center2X - center1X) +
+                        (center2Y - center1Y) * (center2Y - center1Y)
+                )
+
+        return distance
     }
 
     fun logTreeStats() {

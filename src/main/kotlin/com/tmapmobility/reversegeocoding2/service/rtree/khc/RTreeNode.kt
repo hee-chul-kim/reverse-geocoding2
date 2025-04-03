@@ -1,17 +1,17 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc
 
 import org.locationtech.jts.geom.Envelope
-import org.locationtech.jts.geom.MultiPolygon
+import org.locationtech.jts.geom.Geometry
 
 open class RTreeNode(var boundingBox: Envelope)
 
-class RTreeLeafNode(var polygons: MutableList<MultiPolygon>) : RTreeNode(computeBoundingBox(polygons)) {
+class RTreeLeafNode(var polygons: MutableList<Geometry>) : RTreeNode(computeBoundingBox(polygons)) {
     companion object {
-        fun computeBoundingBox(polygons: List<MultiPolygon>): Envelope {
-            val minX = polygons.minOf { it.envelopeInternal.minX }
-            val minY = polygons.minOf { it.envelopeInternal.minY }
-            val maxX = polygons.maxOf { it.envelopeInternal.maxX }
-            val maxY = polygons.maxOf { it.envelopeInternal.maxY }
+        fun computeBoundingBox(geometries: List<Geometry>): Envelope {
+            val minX = geometries.minOf { it.envelopeInternal.minX }
+            val minY = geometries.minOf { it.envelopeInternal.minY }
+            val maxX = geometries.maxOf { it.envelopeInternal.maxX }
+            val maxY = geometries.maxOf { it.envelopeInternal.maxY }
             return Envelope(minX, maxX, minY, maxY)
         }
     }
