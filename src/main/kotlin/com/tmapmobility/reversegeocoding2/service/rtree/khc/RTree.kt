@@ -84,10 +84,14 @@ class RTree(
 
         if (root == node) {
             root = RTreeInternalNode(mutableListOf(left, right))
+            left.parent = root as RTreeInternalNode
+            right.parent = root as RTreeInternalNode
         } else {
-            val parent = findParent(root!!, node) as RTreeInternalNode
+            val parent = node.parent as RTreeInternalNode
             parent.children.remove(node)
             parent.children.addAll(listOf(left, right))
+            left.parent = parent
+            right.parent = parent
 
             if (parent.children.size > nodeCapacity) {
                 splitNode(parent)
@@ -101,14 +105,6 @@ class RTree(
             current.boundingBox = RTreeInternalNode.computeBoundingBox(current.children)
             current = current.parent
         }
-    }
-
-    private fun findParent(node: RTreeNode, child: RTreeNode): RTreeNode? {
-        if (node is RTreeInternalNode) {
-            if (node.children.contains(child)) return node
-            return node.children.mapNotNull { findParent(it, child) }.firstOrNull()
-        }
-        return null
     }
 
     override fun query(searchEnv: Envelope?, visitor: ItemVisitor?) {

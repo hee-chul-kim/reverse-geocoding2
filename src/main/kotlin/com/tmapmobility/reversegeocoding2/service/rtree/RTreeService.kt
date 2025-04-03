@@ -96,16 +96,16 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                             cnt++
                             batchCnt++
 
-                            // 1000개마다 배치 처리 시간 로깅
-                            if (batchCnt == 1000L) {
+                            // 100000개마다 배치 처리 시간 로깅
+                            if (batchCnt == 100000L) {
                                 val batchEndTime = System.currentTimeMillis()
                                 val batchDuration = batchEndTime - batchStartTime
                                 logger.info { """
                                     RTree 배치 처리 완료
                                     - 현재까지 처리된 다각형 수: $cnt
                                     - 배치 처리 시간: ${batchDuration}ms
-                                    - 평균 처리 속도: ${1000.0 / batchDuration * 1000} polygons/sec
-                                    - 마지막 1000개 평균 insert 시간: ${totalTime / 1000}ms/polygon
+                                    - 평균 처리 속도: ${100000.0 / batchDuration * 1000} polygons/sec
+                                    - 마지막 100000개 평균 insert 시간: ${totalTime / 100000}ms/polygon
                                 """.trimIndent() }
                                 
                                 batchCnt = 0L
