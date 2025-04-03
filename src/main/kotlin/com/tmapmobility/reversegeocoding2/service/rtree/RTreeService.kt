@@ -19,6 +19,7 @@ import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.SpatialIndex
+import org.locationtech.jts.index.strtree.AbstractNode
 import org.locationtech.jts.index.strtree.STRtree
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ClassPathResource
@@ -174,14 +175,17 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
     }
 
     fun getTreeVisualizationData(): NodeData? {
-        val tree = rtree as? RTree ?: return null
-        return tree.root?.let { convertToNodeData(it) }
+        return when (rtree) {
+            is RTree -> (rtree as RTree).root?.let { convertToNodeData(it) }
+            is STRtree -> convertToNodeData((rtree as STRtree).root)
+            else -> null
+        }
     }
 
     private fun convertToNodeData(node: RTreeNode, depth: Int = 0): NodeData {
         val id = System.identityHashCode(node).toString()
         return when {
-            depth >= 6 -> NodeData(
+            depth >= 7 -> NodeData(
                 id = id,
                 isLeaf = true,
                 mbr = convertToMBRData(node.boundingBox),
@@ -210,6 +214,28 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                 size = node.children.size
             )
             else -> throw IllegalStateException("Unknown node type")
+        }
+    }
+
+    private fun convertToNodeData(node: AbstractNode, depth: Int = 0): NodeData {
+        val id = System.identityHashCode(node).toString()
+        return when {
+            depth >= 7 -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.bounds as Envelope),
+                children = emptyList(),
+                depth = depth,
+                size = node.size()
+            )
+            else -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.bounds as Envelope),
+                children = node.childBoundables.map { convertToNodeData(it as AbstractNode, depth + 1) },
+                depth = depth,
+                size = node.size()
+            )
         }
     }
 
