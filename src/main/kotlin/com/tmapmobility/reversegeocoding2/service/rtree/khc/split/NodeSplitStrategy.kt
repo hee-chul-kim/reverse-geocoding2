@@ -1,5 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
@@ -13,11 +14,40 @@ import org.locationtech.jts.geom.Geometry
  * 다양한 분할 전략(예: Quadratic Split, Linear Split 등)을 구현할 수 있도록 함
  */
 interface NodeSplitStrategy {
+    companion object {
+        const val MIN_ENTRIES_PER_NODE = 4 // 노드당 최소 엔트리 수
+    }
+
     /**
      * 주어진 노드를 두 개의 새로운 노드로 분할
      * 
      * @param node 분할할 노드 (RTreeLeafNode 또는 RTreeInternalNode)
+     * @param tree 분할할 RTree
      * @return 분할된 두 개의 새로운 노드 (left, right)
      */
-    fun split(node: RTreeNode): Pair<RTreeNode, RTreeNode>
+    fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode>
+
+    /**
+     * 노드의 분할 조건을 검사
+     * 
+     * @param node 검사할 노드
+     * @return 분할이 필요한지 여부
+     */
+    fun needsSplit(node: RTreeNode): Boolean {
+        val size = when (node) {
+            is RTreeLeafNode -> node.polygons.size
+            is RTreeInternalNode -> node.children.size
+            else -> 0
+        }
+        return size >= MIN_ENTRIES_PER_NODE * 2 || needsCustomSplit(node)
+    }
+
+    /**
+     * 노드의 추가적인 분할 조건을 검사
+     * 각 전략에서 구현해야 함
+     * 
+     * @param node 검사할 노드
+     * @return 분할이 필요한지 여부
+     */
+    fun needsCustomSplit(node: RTreeNode): Boolean = false
 }

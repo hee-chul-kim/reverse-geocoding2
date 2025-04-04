@@ -1,5 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
@@ -18,7 +19,7 @@ import org.locationtech.jts.geom.Geometry
  * 향후 Quadratic Split이나 Linear Split과 같은 더 효율적인 전략으로 대체 가능
  */
 class DefaultNodeSplitStrategy : NodeSplitStrategy {
-    override fun split(node: RTreeNode): Pair<RTreeNode, RTreeNode> {
+    override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         // 노드 타입에 따라 자식 요소 추출
         val children = when (node) {
             is RTreeLeafNode -> node.polygons.toMutableList()

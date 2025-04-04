@@ -41,7 +41,9 @@ class RTree(
         val polygon: MultiPolygon = item as MultiPolygon
 
         if (root == null) {
-            root = RTreeLeafNode(mutableListOf(polygon))
+            root = RTreeLeafNode(mutableListOf(polygon)).apply {
+                depth = 0  // root의 depth는 0
+            }
         } else {
             val leaf = findLeafNode(root!!, polygon)
             leaf.polygons.add(polygon)
@@ -50,7 +52,8 @@ class RTree(
             // 부모 노드들의 boundingBox도 재계산
             updateParentBoundingBoxes(leaf)
 
-            if (leaf.polygons.size > nodeCapacity) {
+            // 분할이 필요한지 체크
+            if (leaf.polygons.size > nodeCapacity && splitStrategy.needsSplit(leaf)) {
                 splitNode(leaf)
             }
         }
@@ -80,20 +83,41 @@ class RTree(
     }
 
     private fun splitNode(node: RTreeNode) {
-        val (left, right) = splitStrategy.split(node)
+        val (left, right) = splitStrategy.split(node, this)
+
+        // 새로 생성된 노드들의 바운딩 박스 업데이트
+        when (left) {
+            is RTreeLeafNode -> left.boundingBox = RTreeLeafNode.computeBoundingBox(left.polygons)
+            is RTreeInternalNode -> left.boundingBox = RTreeInternalNode.computeBoundingBox(left.children)
+        }
+        when (right) {
+            is RTreeLeafNode -> right.boundingBox = RTreeLeafNode.computeBoundingBox(right.polygons)
+            is RTreeInternalNode -> right.boundingBox = RTreeInternalNode.computeBoundingBox(right.children)
+        }
 
         if (root == node) {
-            root = RTreeInternalNode(mutableListOf(left, right))
-            left.parent = root as RTreeInternalNode
-            right.parent = root as RTreeInternalNode
+            root = RTreeInternalNode(mutableListOf(left, right)).apply {
+                depth = 0  // root의 depth는 0
+                left.parent = this
+                right.parent = this
+                left.depth = 1  // root의 자식들의 depth는 1
+                right.depth = 1
+                // root의 바운딩 박스 업데이트
+                boundingBox = RTreeInternalNode.computeBoundingBox(children)
+            }
         } else {
             val parent = node.parent as RTreeInternalNode
             parent.children.remove(node)
             parent.children.addAll(listOf(left, right))
             left.parent = parent
             right.parent = parent
+            left.depth = parent.depth + 1  // 부모의 depth + 1
+            right.depth = parent.depth + 1
+            // 부모의 바운딩 박스와 그 상위 노드들의 바운딩 박스 업데이트
+            updateParentBoundingBoxes(left)
 
-            if (parent.children.size > nodeCapacity) {
+            // 부모 노드의 분할 조건 체크
+            if (parent.children.size > nodeCapacity && splitStrategy.needsSplit(parent)) {
                 splitNode(parent)
             }
         }
