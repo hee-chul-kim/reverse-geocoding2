@@ -3,6 +3,7 @@ package com.tmapmobility.reversegeocoding2.service.rtree
 import com.tmapmobility.reversegeocoding2.geometryFactory
 import com.tmapmobility.reversegeocoding2.model.SearchResponse
 import com.tmapmobility.reversegeocoding2.service.SearchService
+import com.tmapmobility.reversegeocoding2.service.kdtree.KDTree
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
@@ -17,6 +18,7 @@ import org.geotools.data.shapefile.dbf.DbaseFileReader
 import org.geotools.data.shapefile.files.ShpFiles
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.Envelope
+import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.SpatialIndex
 import org.locationtech.jts.index.strtree.AbstractNode
@@ -97,9 +99,10 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
             var cnt = 0L
             var batchStartTime = System.currentTimeMillis()
             var batchCnt = 0L
-            var totalTime = 0L
 
-            val creationTime = measureTimeMillis {
+            // 먼저 모든 geometry를 리스트에 수집
+            val geometries = mutableListOf<Geometry>()
+            val loadingTime = measureTimeMillis {
                 source.features.features().use { features ->
                     while (features.hasNext()) {
                         val feature = features.next()
@@ -109,11 +112,8 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                         dbfReader.readEntry(dbfRecord)
 
                         if (geometry != null) {
-                            val insertTime = measureTimeMillis {
-                                geometry.userData = dbfRecord
-                                rtree.insert(geometry.envelopeInternal, geometry)
-                            }
-                            totalTime += insertTime
+                            geometry.userData = dbfRecord
+                            geometries.add(geometry)
                             cnt++
                             batchCnt++
 
@@ -122,40 +122,42 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                                 val batchEndTime = System.currentTimeMillis()
                                 val batchDuration = batchEndTime - batchStartTime
                                 logger.info { """
-                                    RTree 배치 처리 완료
+                                    데이터 로딩 배치 처리 완료
                                     - 현재까지 처리된 다각형 수: $cnt
                                     - 배치 처리 시간: ${batchDuration}ms
                                     - 평균 처리 속도: ${100000.0 / batchDuration * 1000} polygons/sec
-                                    - 마지막 100000개 평균 insert 시간: ${totalTime / 100000}ms/polygon
                                 """.trimIndent() }
                                 
                                 batchCnt = 0L
                                 batchStartTime = System.currentTimeMillis()
-                                totalTime = 0L
                             }
                         }
                     }
                 }
             }
 
-            // 마지막 배치 처리 로깅
-            if (batchCnt > 0) {
-                val batchEndTime = System.currentTimeMillis()
-                val batchDuration = batchEndTime - batchStartTime
-                logger.info { """
-                    RTree 마지막 배치 처리 완료
-                    - 처리된 다각형 수: $batchCnt
-                    - 배치 처리 시간: ${batchDuration}ms
-                    - 평균 처리 속도: ${batchCnt.toDouble() / batchDuration * 1000} polygons/sec
-                    - 평균 insert 시간: ${totalTime / batchCnt}ms/polygon
-                """.trimIndent() }
+            logger.info { """
+                데이터 로딩 완료
+                - 총 로드된 다각형 수: $cnt
+                - 전체 소요 시간: ${loadingTime}ms
+                - 전체 평균 처리 속도: ${cnt.toDouble() / loadingTime * 1000} polygons/sec
+            """.trimIndent() }
+
+            // KDTree 생성 및 RTree 변환
+            logger.info { "KDTree 생성 시작" }
+            val treeCreationTime = measureTimeMillis {
+                val kdTree = KDTree(geometries)
+                kdTree.logTreeStats()
+                
+                // KDTree를 RTree로 변환
+                logger.info { "KDTree를 RTree로 변환 시작" }
+                rtree = kdTree.toRTree()
             }
 
             logger.info { """
-                RTree 생성 완료
-                - 총 로드된 다각형 수: $cnt
-                - 전체 소요 시간: ${creationTime}ms
-                - 전체 평균 처리 속도: ${cnt.toDouble() / creationTime * 1000} polygons/sec
+                KDTree 생성 및 RTree 변환 완료
+                - 소요 시간: ${treeCreationTime}ms
+                - 평균 처리 속도: ${cnt.toDouble() / treeCreationTime * 1000} polygons/sec
             """.trimIndent() }
 
             (rtree as? RTree)?.logTreeStats()
@@ -185,7 +187,7 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
     private fun convertToNodeData(node: RTreeNode, depth: Int = 0): NodeData {
         val id = System.identityHashCode(node).toString()
         return when {
-            depth >= 7 -> NodeData(
+            depth >= 10 -> NodeData(
                 id = id,
                 isLeaf = true,
                 mbr = convertToMBRData(node.boundingBox),
