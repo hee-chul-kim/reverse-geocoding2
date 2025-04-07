@@ -2,6 +2,7 @@ package com.tmapmobility.reversegeocoding2.service.rtree
 
 import com.tmapmobility.reversegeocoding2.service.LocalSearchService
 import com.tmapmobility.reversegeocoding2.service.NodeData
+import com.tmapmobility.reversegeocoding2.service.rtree.split.DefaultSplitStrategy
 import com.tmapmobility.reversegeocoding2.service.shapeloader.ShapeLoader
 import jakarta.annotation.PostConstruct
 import org.springframework.context.annotation.DependsOn
@@ -15,7 +16,7 @@ class RtreeSearchService(
     val shapeLoader: ShapeLoader
 ) : LocalSearchService {
 
-    override var spatialDataModel: RTree = RTree(10)
+    override var spatialDataModel: RTree = RTree(10, DefaultSplitStrategy())
 
     @PostConstruct
     fun createSpatialIndex() {

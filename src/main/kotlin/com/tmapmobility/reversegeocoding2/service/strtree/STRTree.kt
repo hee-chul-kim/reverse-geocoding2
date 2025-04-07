@@ -281,32 +281,3 @@ class KhcSTRtree(
         return result.map { it.second }.reversed()
     }
 }
-//
-///**
-// * STR-Tree의 노드를 나타내는 sealed 클래스
-// */
-//sealed class STRNode {
-//    abstract var envelope: Envelope
-//    abstract var depth: Int
-//    abstract var parent: InternalNode?
-//
-//    /**
-//     * 리프 노드: 실제 데이터 아이템을 저장
-//     */
-//    class LeafNode(
-//        override var envelope: Envelope,
-//        override var depth: Int,
-//        val geometries: List<Geometry>,
-//        override var parent: InternalNode? = null,
-//    ) : STRNode()
-//
-//    /**
-//     * 내부 노드: 자식 노드들을 저장
-//     */
-//    class InternalNode(
-//        override var envelope: Envelope,
-//        override var depth: Int,
-//        val children: List<STRNode>,
-//        override var parent: InternalNode? = null,
-//    ) : STRNode()
-//}
