@@ -1,9 +1,9 @@
-package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
+package com.tmapmobility.reversegeocoding2.service.rtree.split
 
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTree
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
@@ -18,7 +18,7 @@ import org.locationtech.jts.geom.Geometry
  * 이 전략은 단순하지만 최적의 분할을 보장하지는 않음
  * 향후 Quadratic Split이나 Linear Split과 같은 더 효율적인 전략으로 대체 가능
  */
-class DefaultNodeSplitStrategy : NodeSplitStrategy {
+class DefaultSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         // 노드 타입에 따라 자식 요소 추출
         val children = when (node) {
@@ -31,7 +31,7 @@ class DefaultNodeSplitStrategy : NodeSplitStrategy {
         val boundingBoxes = children.map {
             when (it) {
                 is Geometry -> it.envelopeInternal
-                is RTreeNode -> it.boundingBox
+                is RTreeNode -> it.envelope
                 else -> throw IllegalArgumentException("Invalid child type")
             }
         }
@@ -47,7 +47,7 @@ class DefaultNodeSplitStrategy : NodeSplitStrategy {
         children.forEach { child ->
             val box = when (child) {
                 is Geometry -> child.envelopeInternal
-                is RTreeNode -> child.boundingBox
+                is RTreeNode -> child.envelope
                 else -> throw IllegalArgumentException("Invalid child type")
             }
 

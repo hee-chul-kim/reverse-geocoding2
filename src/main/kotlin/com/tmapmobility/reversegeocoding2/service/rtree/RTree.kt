@@ -1,7 +1,7 @@
-package com.tmapmobility.reversegeocoding2.service.rtree.khc
+package com.tmapmobility.reversegeocoding2.service.rtree
 
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.DefaultNodeSplitStrategy
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.NodeSplitStrategy
+import com.tmapmobility.reversegeocoding2.service.rtree.split.DefaultSplitStrategy
+import com.tmapmobility.reversegeocoding2.service.rtree.split.NodeSplitStrategy
 import com.tmapmobility.reversegeocoding2.util.plus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
@@ -13,7 +13,7 @@ val logger = KotlinLogging.logger {}
 
 class RTree(
     private val nodeCapacity: Int = 10,
-    private val splitStrategy: NodeSplitStrategy = DefaultNodeSplitStrategy()
+    private val splitStrategy: NodeSplitStrategy = DefaultSplitStrategy()
 ) : SpatialIndex {
     var root: RTreeNode? = null
 
@@ -24,7 +24,7 @@ class RTree(
     }
 
     private fun search(node: RTreeNode, range: Envelope, result: MutableList<Any?>) {
-        if (!node.boundingBox.intersects(range)) return
+        if (!node.envelope.intersects(range)) return
 
         when (node) {
             is RTreeLeafNode -> {
@@ -48,7 +48,7 @@ class RTree(
             val leaf = findLeafNode(root!!, polygon)
             leaf.geometries.add(polygon)
             // 리프 노드의 boundingBox 재계산
-            leaf.boundingBox = RTreeLeafNode.computeBoundingBox(leaf.geometries)
+            leaf.envelope = RTreeLeafNode.computeBoundingBox(leaf.geometries)
             // 부모 노드들의 boundingBox도 재계산
             updateParentBoundingBoxes(leaf)
 
@@ -73,11 +73,11 @@ class RTree(
 
     private fun bestFit(children: MutableList<RTreeNode>, polygon: MultiPolygon): RTreeNode {
         var minBoxNode: RTreeNode = children.first()
-        var minBox: Envelope = minBoxNode.boundingBox
+        var minBox: Envelope = minBoxNode.envelope
         for (child in children) {
-            if ((child.boundingBox + polygon.envelopeInternal).area < minBox.area) {
+            if ((child.envelope + polygon.envelopeInternal).area < minBox.area) {
                 minBoxNode = child
-                minBox = child.boundingBox
+                minBox = child.envelope
             }
         }
         return minBoxNode
@@ -88,12 +88,12 @@ class RTree(
 
         // 새로 생성된 노드들의 바운딩 박스 업데이트
         when (left) {
-            is RTreeLeafNode -> left.boundingBox = RTreeLeafNode.computeBoundingBox(left.geometries)
-            is RTreeInternalNode -> left.boundingBox = RTreeInternalNode.computeBoundingBox(left.children)
+            is RTreeLeafNode -> left.envelope = RTreeLeafNode.computeBoundingBox(left.geometries)
+            is RTreeInternalNode -> left.envelope = RTreeInternalNode.computeBoundingBox(left.children)
         }
         when (right) {
-            is RTreeLeafNode -> right.boundingBox = RTreeLeafNode.computeBoundingBox(right.geometries)
-            is RTreeInternalNode -> right.boundingBox = RTreeInternalNode.computeBoundingBox(right.children)
+            is RTreeLeafNode -> right.envelope = RTreeLeafNode.computeBoundingBox(right.geometries)
+            is RTreeInternalNode -> right.envelope = RTreeInternalNode.computeBoundingBox(right.children)
         }
 
         if (root == node) {
@@ -104,7 +104,7 @@ class RTree(
                 left.depth = 1  // root의 자식들의 depth는 1
                 right.depth = 1
                 // root의 바운딩 박스 업데이트
-                boundingBox = RTreeInternalNode.computeBoundingBox(children)
+                envelope = RTreeInternalNode.computeBoundingBox(children)
             }
         } else {
             val parent = node.parent as RTreeInternalNode
@@ -127,7 +127,7 @@ class RTree(
     private fun updateParentBoundingBoxes(node: RTreeNode) {
         var current = node.parent
         while (current != null) {
-            current.boundingBox = RTreeInternalNode.computeBoundingBox(current.children)
+            current.envelope = RTreeInternalNode.computeBoundingBox(current.children)
             current = current.parent
         }
     }

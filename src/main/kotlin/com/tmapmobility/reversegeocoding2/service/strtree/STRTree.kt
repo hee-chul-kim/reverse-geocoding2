@@ -14,7 +14,7 @@ class KhcSTRtree(
     private val nodeCapacity: Int = DEFAULT_NODE_CAPACITY
 ) {
     private var root: STRNode? = null
-    private val items = mutableListOf<STRItem>()
+    private val items = mutableListOf<Geometry>()
     private var isBuilt = false
 
     companion object {
@@ -27,7 +27,7 @@ class KhcSTRtree(
      */
     fun insert(item: Geometry) {
         require(!isBuilt) { "트리가 이미 구축되어 있어 새로운 아이템을 삽입할 수 없습니다." }
-        items.add(STRItem(item.envelopeInternal, item))
+        items.add(item)
     }
 
     /**
@@ -44,15 +44,15 @@ class KhcSTRtree(
     /**
      * STR 알고리즘을 사용하여 레벨별로 노드를 생성
      */
-    private fun createLevel(items: List<STRItem>, level: Int): STRNode {
+    private fun createLevel(items: List<Geometry>, level: Int): STRNode {
         // 아이템이 노드 용량 이하면 바로 리프 노드 생성
         if (items.size <= nodeCapacity) {
-            val envelope = computeEnvelope(items.map { it.envelope })
+            val envelope = computeEnvelope(items.map { it.envelopeInternal })
             return STRNode.LeafNode(envelope, level, items)
         }
 
         // 1. X축으로 정렬
-        val sortedByX = items.sortedBy { it.envelope.minX }
+        val sortedByX = items.sortedBy { it.envelopeInternal.minX }
 
         // 2. X축 슬라이스 수 계산 (M = ceil(N/n), N: 전체 아이템 수, n: 노드 용량)
         val sliceCount = ceil(Math.sqrt(items.size.toDouble() / nodeCapacity)).toInt()
@@ -60,7 +60,7 @@ class KhcSTRtree(
 
         // 3. X축 슬라이스로 분할하고 각 슬라이스 내에서 Y축으로 정렬
         val slices = sortedByX.chunked(itemsPerSlice)
-            .map { slice -> slice.sortedBy { it.envelope.minY } }
+            .map { slice -> slice.sortedBy { it.envelopeInternal.minY } }
 
         // 4. 각 슬라이스에서 노드 크기만큼 그룹화
         val nodes = mutableListOf<STRNode>()
@@ -68,7 +68,7 @@ class KhcSTRtree(
         for (slice in slices) {
             val groups = slice.chunked(nodeCapacity)
             for (group in groups) {
-                val envelope = computeEnvelope(group.map { it.envelope })
+                val envelope = computeEnvelope(group.map { it.envelopeInternal })
                 nodes.add(STRNode.LeafNode(envelope, level, group))
             }
         }
@@ -153,9 +153,9 @@ class KhcSTRtree(
         when (node) {
             is STRNode.LeafNode -> {
                 // 리프 노드의 경우 각 아이템을 검사
-                for (item in node.items) {
-                    if (item.envelope.intersects(searchEnv)) {
-                        result.add(item.item)
+                for (item in node.geometries) {
+                    if (item.envelopeInternal.intersects(searchEnv)) {
+                        result.add(item)
                     }
                 }
             }
@@ -193,11 +193,11 @@ class KhcSTRtree(
             when (node) {
                 is STRNode.LeafNode -> {
                     // 리프 노드의 경우 각 아이템을 검사
-                    for (item in node.items) {
-                        val itemDistance = point.distance(item.envelope)
+                    for (item in node.geometries) {
+                        val itemDistance = point.distance(item.envelopeInternal)
                         if (itemDistance < minDistance) {
                             minDistance = itemDistance
-                            nearest = item.item
+                            nearest = item
                         }
                     }
                 }
@@ -241,14 +241,14 @@ class KhcSTRtree(
             when (node) {
                 is STRNode.LeafNode -> {
                     // 리프 노드의 경우 각 아이템을 검사
-                    for (item in node.items) {
-                        val itemDistance = point.distance(item.envelope)
+                    for (item in node.geometries) {
+                        val itemDistance = point.distance(item.envelopeInternal)
 
                         if (result.size < k) {
-                            result.offer(Pair(itemDistance, item.item))
+                            result.offer(Pair(itemDistance, item))
                         } else if (itemDistance < result.peek().first) {
                             result.poll()
-                            result.offer(Pair(itemDistance, item.item))
+                            result.offer(Pair(itemDistance, item))
                         }
                     }
                 }
@@ -276,45 +276,40 @@ class KhcSTRtree(
         if (!isBuilt) build()
         return root
     }
-
-    /**
-     * 노드를 JSON 형식으로 변환
-     */
-    fun toJson(): Map<String, Any?> {
-        if (!isBuilt) build()
-        return root?.toJson() ?: mapOf()
-    }
 }
 
 /**
  * STR-Tree의 노드를 나타내는 sealed 클래스
  */
 sealed class STRNode {
-    abstract val envelope: Envelope
-    abstract val level: Int
+    abstract var envelope: Envelope
+    abstract var depth: Int
+    abstract var parent: InternalNode?
 
     /**
      * 리프 노드: 실제 데이터 아이템을 저장
      */
     class LeafNode(
-        override val envelope: Envelope,
-        override val level: Int,
-        val items: List<STRItem>
+        override var envelope: Envelope,
+        override var depth: Int,
+        val geometries: List<Geometry>,
+        override var parent: InternalNode? = null,
     ) : STRNode()
 
     /**
      * 내부 노드: 자식 노드들을 저장
      */
     class InternalNode(
-        override val envelope: Envelope,
-        override val level: Int,
-        val children: List<STRNode>
+        override var envelope: Envelope,
+        override var depth: Int,
+        val children: List<STRNode>,
+        override var parent: InternalNode? = null,
     ) : STRNode()
 
     /**
-     * 노드를 JSON 형식으로 변환
+     * 노드를 MBR View 에서 보여주기 위한 데이터로 변환
      */
-    fun toJson(): Map<String, Any?> {
+    fun toMbrViewData(): Map<String, Any?> {
         val json = mutableMapOf<String, Any?>(
             "mbr" to mapOf(
                 "minX" to envelope.minX,
@@ -322,54 +317,34 @@ sealed class STRNode {
                 "minY" to envelope.minY,
                 "maxY" to envelope.maxY
             ),
-            "level" to level
+            "level" to depth
         )
 
         when (this) {
             is LeafNode -> {
                 json["type"] = "leaf"
-                json["items"] = items.map { item ->
+                json["items"] = geometries.map { item ->
                     mapOf(
                         "mbr" to mapOf(
-                            "minX" to item.envelope.minX,
-                            "maxX" to item.envelope.maxX,
-                            "minY" to item.envelope.minY,
-                            "maxY" to item.envelope.maxY
+                            "minX" to item.envelopeInternal.minX,
+                            "maxX" to item.envelopeInternal.maxX,
+                            "minY" to item.envelopeInternal.minY,
+                            "maxY" to item.envelopeInternal.maxY
                         ),
-                        "data" to item.item.toString()
+                        "data" to mapOf(
+                            "envelope" to item.envelopeInternal,
+                            "item" to item
+                        )
                     )
                 }
             }
 
             is InternalNode -> {
                 json["type"] = "internal"
-                json["children"] = children.map { it.toJson() }
+                json["children"] = children.map { it.toMbrViewData() }
             }
         }
 
         return json
     }
 }
-
-/**
- * 공간 데이터 아이템을 나타내는 클래스
- */
-data class STRItem(
-    val envelope: Envelope,
-    val item: Geometry
-)
-
-// Envelope 확장 함수: 두 Envelope 간의 거리 계산
-fun Envelope.distance(other: Envelope): Double {
-    val dx = when {
-        other.maxX < this.minX -> this.minX - other.maxX
-        other.minX > this.maxX -> other.minX - this.maxX
-        else -> 0.0
-    }
-    val dy = when {
-        other.maxY < this.minY -> this.minY - other.maxY
-        other.minY > this.maxY -> other.minY - this.maxY
-        else -> 0.0
-    }
-    return Math.sqrt(dx * dx + dy * dy)
-} 

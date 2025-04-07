@@ -1,9 +1,9 @@
-package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
+package com.tmapmobility.reversegeocoding2.service.rtree.split
 
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTree
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
@@ -31,7 +31,7 @@ class LinearSplitStrategy : NodeSplitStrategy {
         val boundingBoxes = children.map {
             when (it) {
                 is Geometry -> it.envelopeInternal
-                is RTreeNode -> it.boundingBox
+                is RTreeNode -> it.envelope
                 else -> throw IllegalArgumentException("Invalid child type")
             }
         }
@@ -55,14 +55,14 @@ class LinearSplitStrategy : NodeSplitStrategy {
         val seed1Index = children.indexOfFirst {
             when (it) {
                 is Geometry -> it.envelopeInternal == seed1
-                is RTreeNode -> it.boundingBox == seed1
+                is RTreeNode -> it.envelope == seed1
                 else -> false
             }
         }
         val seed2Index = children.indexOfFirst {
             when (it) {
                 is Geometry -> it.envelopeInternal == seed2
-                is RTreeNode -> it.boundingBox == seed2
+                is RTreeNode -> it.envelope == seed2
                 else -> false
             }
         }
@@ -77,7 +77,7 @@ class LinearSplitStrategy : NodeSplitStrategy {
             val child = children[i]
             val box = when (child) {
                 is Geometry -> child.envelopeInternal
-                is RTreeNode -> child.boundingBox
+                is RTreeNode -> child.envelope
                 else -> throw IllegalArgumentException("Invalid child type")
             }
 

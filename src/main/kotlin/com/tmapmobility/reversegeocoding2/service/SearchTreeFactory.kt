@@ -1,7 +1,7 @@
 package com.tmapmobility.reversegeocoding2.service
 
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.DefaultNodeSplitStrategy
+import com.tmapmobility.reversegeocoding2.service.rtree.RTree
+import com.tmapmobility.reversegeocoding2.service.rtree.split.DefaultSplitStrategy
 import org.locationtech.jts.index.SpatialIndex
 import org.springframework.stereotype.Component
 
@@ -9,6 +9,6 @@ import org.springframework.stereotype.Component
 class SearchTreeFactory {
 
     fun create(): SpatialIndex {
-        return RTree(4, DefaultNodeSplitStrategy())
+        return RTree(4, DefaultSplitStrategy())
     }
 } 

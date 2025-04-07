@@ -1,11 +1,11 @@
-package com.tmapmobility.reversegeocoding2.service.rtree.khc
+package com.tmapmobility.reversegeocoding2.service.rtree
 
 import com.tmapmobility.reversegeocoding2.util.plus
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
 abstract class RTreeNode {
-    abstract var boundingBox: Envelope
+    abstract var envelope: Envelope
     abstract var depth: Int
     abstract var parent: RTreeInternalNode?
 
@@ -19,7 +19,7 @@ abstract class RTreeNode {
 class RTreeLeafNode(
     var geometries: MutableList<Geometry>
 ) : RTreeNode() {
-    override var boundingBox: Envelope = computeBoundingBox(geometries)
+    override var envelope: Envelope = computeBoundingBox(geometries)
     override var depth: Int = 0
     override var parent: RTreeInternalNode? = null
 
@@ -40,19 +40,19 @@ class RTreeLeafNode(
         if (entry !is Geometry) {
             throw IllegalArgumentException("Leaf node can only insert Geometry")
         }
-        addPolygon(entry)
+        add(entry)
     }
 
-    private fun addPolygon(polygon: Geometry) {
-        geometries.add(polygon)
-        boundingBox += polygon.envelopeInternal
+    private fun add(geometry: Geometry) {
+        geometries.add(geometry)
+        envelope += geometry.envelopeInternal
     }
 }
 
 class RTreeInternalNode(
     var children: MutableList<RTreeNode>
 ) : RTreeNode() {
-    override var boundingBox: Envelope = computeBoundingBox(children)
+    override var envelope: Envelope = computeBoundingBox(children)
     override var depth: Int = 0
     override var parent: RTreeInternalNode? = null
 
@@ -71,7 +71,7 @@ class RTreeInternalNode(
         entry.parent = this
         entry.depth = this.depth + 1
         // 바운딩 박스 업데이트
-        boundingBox = computeBoundingBox(children)
+        envelope = computeBoundingBox(children)
     }
 
     companion object {
@@ -79,10 +79,10 @@ class RTreeInternalNode(
             if (nodes.isEmpty()) {
                 return Envelope()
             }
-            val minX = nodes.minOf { it.boundingBox.minX }
-            val minY = nodes.minOf { it.boundingBox.minY }
-            val maxX = nodes.maxOf { it.boundingBox.maxX }
-            val maxY = nodes.maxOf { it.boundingBox.maxY }
+            val minX = nodes.minOf { it.envelope.minX }
+            val minY = nodes.minOf { it.envelope.minY }
+            val maxX = nodes.maxOf { it.envelope.maxX }
+            val maxY = nodes.maxOf { it.envelope.maxY }
             return Envelope(minX, maxX, minY, maxY)
         }
     }

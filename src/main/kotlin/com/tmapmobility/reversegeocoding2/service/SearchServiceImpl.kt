@@ -3,6 +3,7 @@ package com.tmapmobility.reversegeocoding2.service
 import com.tmapmobility.reversegeocoding2.geometryFactory
 import com.tmapmobility.reversegeocoding2.model.SearchResponse
 import com.tmapmobility.reversegeocoding2.service.strtree.KhcSTRtree
+import com.tmapmobility.reversegeocoding2.service.strtree.STRNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.geotools.api.data.FileDataStore
@@ -13,7 +14,6 @@ import org.geotools.data.shapefile.dbf.DbaseFileReader
 import org.geotools.data.shapefile.files.ShpFiles
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.Envelope
-import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.geom.MultiPolygon
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Primary
@@ -67,8 +67,10 @@ class SearchServiceImpl(
         val source: SimpleFeatureSource = store.featureSource
         logger.info { "Shapefile에서 다각형 로딩 시작: $shapefilePath" }
 
-        val dbfReader = DbaseFileReader(ShpFiles(ClassPathResource(shapefilePath).file.absolutePath),
-            true, Charset.forName("UTF-8"))
+        val dbfReader = DbaseFileReader(
+            ShpFiles(ClassPathResource(shapefilePath).file.absolutePath),
+            true, Charset.forName("UTF-8")
+        )
         val dbfHeader: DbaseFileHeader = dbfReader.header
         val colSize: Int = dbfHeader.numFields
 
@@ -96,13 +98,15 @@ class SearchServiceImpl(
                             if (batchCnt == 100000L) {
                                 val batchEndTime = System.currentTimeMillis()
                                 val batchDuration = batchEndTime - batchStartTime
-                                logger.info { """
+                                logger.info {
+                                    """
                                     데이터 로딩 배치 처리 완료
                                     - 현재까지 처리된 다각형 수: $cnt
                                     - 배치 처리 시간: ${batchDuration}ms
                                     - 평균 처리 속도: ${100000.0 / batchDuration * 1000} polygons/sec
-                                """.trimIndent() }
-                                
+                                """.trimIndent()
+                                }
+
                                 batchCnt = 0L
                                 batchStartTime = System.currentTimeMillis()
                             }
@@ -111,12 +115,14 @@ class SearchServiceImpl(
                 }
             }
 
-            logger.info { """
+            logger.info {
+                """
                 데이터 로딩 완료
                 - 총 로드된 다각형 수: $cnt
                 - 전체 소요 시간: ${loadingTime}ms
                 - 전체 평균 처리 속도: ${cnt.toDouble() / loadingTime * 1000} polygons/sec
-            """.trimIndent() }
+            """.trimIndent()
+            }
 
             // STRtree 빌드
             logger.info { "STRtree 빌드 시작" }
@@ -136,18 +142,18 @@ class SearchServiceImpl(
         val resource = ClassPathResource(shapefilePath)
         val file = resource.file
         file.setReadOnly()
-        store = FileDataStoreFinder.getDataStore(file) ?:
-                throw IllegalArgumentException("Could not find data store for file: $shapefilePath")
+        store = FileDataStoreFinder.getDataStore(file)
+            ?: throw IllegalArgumentException("Could not find data store for file: $shapefilePath")
     }
 
     override fun getTreeVisualizationData(): NodeData? {
         return spatialIndex.getRoot()?.let { convertToNodeData(it) }
     }
 
-    private fun convertToNodeData(node: com.tmapmobility.reversegeocoding2.service.strtree.STRNode, depth: Int = 0): NodeData {
+    private fun convertToNodeData(node: STRNode, depth: Int = 0): NodeData {
         val id = System.identityHashCode(node).toString()
         return when (node) {
-            is com.tmapmobility.reversegeocoding2.service.strtree.STRNode.InternalNode -> NodeData(
+            is STRNode.InternalNode -> NodeData(
                 id = id,
                 isLeaf = false,
                 mbr = convertToMBRData(node.envelope),
@@ -155,13 +161,14 @@ class SearchServiceImpl(
                 depth = depth,
                 size = node.children.size
             )
-            is com.tmapmobility.reversegeocoding2.service.strtree.STRNode.LeafNode -> NodeData(
+
+            is STRNode.LeafNode -> NodeData(
                 id = id,
                 isLeaf = true,
                 mbr = convertToMBRData(node.envelope),
                 children = emptyList(),
                 depth = depth,
-                size = node.items.size
+                size = node.geometries.size
             )
         }
     }
