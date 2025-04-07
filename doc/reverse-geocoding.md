@@ -42,7 +42,7 @@
 
 ### R-Tree
 
-![R-Tree 구조](images/r-tree.svg)
+![R-Tree 구조](images/R-tree.svg)
 
 - **구조**: 다차원 공간 데이터를 위한 트리 구조
 - **장점**:
