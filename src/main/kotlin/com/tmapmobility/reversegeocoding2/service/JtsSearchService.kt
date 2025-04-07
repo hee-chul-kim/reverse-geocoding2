@@ -1,7 +1,9 @@
 package com.tmapmobility.reversegeocoding2.service
 
+import com.tmapmobility.reversegeocoding2.model.SearchResponse
 import com.tmapmobility.reversegeocoding2.service.shapeloader.ShapeLoader
 import jakarta.annotation.PostConstruct
+import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.index.strtree.AbstractNode
 import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
@@ -31,11 +33,45 @@ class JtsSearchService(
         }
     }
 
-    fun getVisualizationData(): NodeData? {
-        return spatialDataModel.root?.convertToNodeData()
+    override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
+        TODO("Not yet implemented")
     }
 
-    fun AbstractNode.convertToNodeData(): NodeData {
+    fun getVisualizationData(): NodeData? {
+        return convertToNodeData(spatialDataModel.root)
+    }
 
+    private fun convertToNodeData(node: AbstractNode, depth: Int = 0): NodeData {
+        val id = System.identityHashCode(node).toString()
+        return when {
+            depth >= 7 -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.bounds as Envelope),
+                children = emptyList(),
+                depth = depth,
+                size = node.size()
+            )
+
+            else -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(node.bounds as Envelope),
+                children = node.childBoundables
+                    .filterIsInstance<AbstractNode>()
+                    .map { convertToNodeData(it as AbstractNode, depth + 1) },
+                depth = depth,
+                size = node.size()
+            )
+        }
+    }
+
+    private fun convertToMBRData(envelope: Envelope): MBRData {
+        return MBRData(
+            minX = envelope.minX,
+            minY = envelope.minY,
+            maxX = envelope.maxX,
+            maxY = envelope.maxY
+        )
     }
 }
