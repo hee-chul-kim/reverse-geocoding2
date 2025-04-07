@@ -1,6 +1,7 @@
 package com.tmapmobility.reversegeocoding2.service.strtree
 
 import com.tmapmobility.reversegeocoding2.service.SpatialDataModel
+import com.tmapmobility.reversegeocoding2.service.rtree.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 import java.util.*
@@ -14,7 +15,7 @@ import kotlin.math.ceil
 class KhcSTRtree(
     private val nodeCapacity: Int = DEFAULT_NODE_CAPACITY
 ) : SpatialDataModel {
-    var root: STRNode? = null
+    var root: RTreeNode? = null
         private set
     private val items = mutableListOf<Geometry>()
     private var isBuilt = false
@@ -55,11 +56,11 @@ class KhcSTRtree(
     /**
      * STR 알고리즘을 사용하여 레벨별로 노드를 생성
      */
-    private fun createLevel(items: List<Geometry>, level: Int): STRNode {
+    private fun createLevel(items: MutableList<Geometry>, depth: Int): RTreeNode {
         // 아이템이 노드 용량 이하면 바로 리프 노드 생성
         if (items.size <= nodeCapacity) {
             val envelope = computeEnvelope(items.map { it.envelopeInternal })
-            return STRNode.LeafNode(envelope, level, items)
+            return RTreeNode.LeafNode(envelope, depth, items)
         }
 
         // 1. X축으로 정렬
@@ -74,13 +75,13 @@ class KhcSTRtree(
             .map { slice -> slice.sortedBy { it.envelopeInternal.minY } }
 
         // 4. 각 슬라이스에서 노드 크기만큼 그룹화
-        val nodes = mutableListOf<STRNode>()
+        val nodes = mutableListOf<RTreeNode.LeafNode>()
 
         for (slice in slices) {
             val groups = slice.chunked(nodeCapacity)
             for (group in groups) {
                 val envelope = computeEnvelope(group.map { it.envelopeInternal })
-                nodes.add(STRNode.LeafNode(envelope, level, group))
+                nodes.add(RTreeNode.LeafNode(envelope, depth, group.toMutableList()))
             }
         }
 
@@ -90,16 +91,16 @@ class KhcSTRtree(
         }
 
         // 노드가 여러 개면 재귀적으로 상위 레벨 생성
-        return createInternalLevel(nodes, level + 1)
+        return createInternalLevel(nodes, depth + 1)
     }
 
     /**
      * 내부 노드 레벨 생성
      */
-    private fun createInternalLevel(nodes: List<STRNode>, level: Int): STRNode {
+    private fun createInternalLevel(nodes: List<RTreeNode>, level: Int): RTreeNode {
         if (nodes.size <= nodeCapacity) {
             val envelope = computeEnvelope(nodes.map { it.envelope })
-            return STRNode.InternalNode(envelope, level, nodes)
+            return RTreeNode.InternalNode(envelope, level, nodes.toMutableList())
         }
 
         // 노드들을 X축으로 정렬
@@ -114,13 +115,13 @@ class KhcSTRtree(
             .map { slice -> slice.sortedBy { it.envelope.minY } }
 
         // 각 슬라이스에서 노드 크기만큼 그룹화하여 상위 노드 생성
-        val parentNodes = mutableListOf<STRNode>()
+        val parentNodes = mutableListOf<RTreeNode>()
 
         for (slice in slices) {
             val groups = slice.chunked(nodeCapacity)
             for (group in groups) {
                 val envelope = computeEnvelope(group.map { it.envelope })
-                parentNodes.add(STRNode.InternalNode(envelope, level, group))
+                parentNodes.add(RTreeNode.InternalNode(envelope, level, group.toMutableList()))
             }
         }
 
@@ -157,12 +158,12 @@ class KhcSTRtree(
         return result
     }
 
-    private fun queryInternal(node: STRNode, searchEnv: Envelope, result: MutableList<Geometry>) {
+    private fun queryInternal(node: RTreeNode, searchEnv: Envelope, result: MutableList<Geometry>) {
         // 현재 노드의 MBR이 검색 영역과 겹치지 않으면 종료
         if (!node.envelope.intersects(searchEnv)) return
 
         when (node) {
-            is STRNode.LeafNode -> {
+            is RTreeNode.LeafNode -> {
                 // 리프 노드의 경우 각 아이템을 검사
                 for (item in node.geometries) {
                     if (item.envelopeInternal.intersects(searchEnv)) {
@@ -171,7 +172,7 @@ class KhcSTRtree(
                 }
             }
 
-            is STRNode.InternalNode -> {
+            is RTreeNode.InternalNode -> {
                 // 내부 노드의 경우 자식 노드들을 재귀적으로 검사
                 for (child in node.children) {
                     queryInternal(child, searchEnv, result)
@@ -192,7 +193,7 @@ class KhcSTRtree(
         var nearest: Geometry? = null
 
         // 우선순위 큐를 사용하여 가장 가까운 노드부터 탐색
-        val queue = PriorityQueue<Pair<Double, STRNode>>(compareBy { it.first })
+        val queue = PriorityQueue<Pair<Double, RTreeNode>>(compareBy { it.first })
         queue.offer(Pair(point.distance(root!!.envelope), root!!))
 
         while (queue.isNotEmpty()) {
@@ -202,7 +203,7 @@ class KhcSTRtree(
             if (distance > minDistance) break
 
             when (node) {
-                is STRNode.LeafNode -> {
+                is RTreeNode.LeafNode -> {
                     // 리프 노드의 경우 각 아이템을 검사
                     for (item in node.geometries) {
                         val itemDistance = point.distance(item.envelopeInternal)
@@ -213,7 +214,7 @@ class KhcSTRtree(
                     }
                 }
 
-                is STRNode.InternalNode -> {
+                is RTreeNode.InternalNode -> {
                     // 내부 노드의 경우 자식 노드들을 우선순위 큐에 추가
                     for (child in node.children) {
                         val childDistance = point.distance(child.envelope)
@@ -240,7 +241,7 @@ class KhcSTRtree(
         val result = PriorityQueue<Pair<Double, Geometry>>(compareByDescending { it.first })
 
         // 우선순위 큐를 사용하여 가장 가까운 노드부터 탐색
-        val queue = PriorityQueue<Pair<Double, STRNode>>(compareBy { it.first })
+        val queue = PriorityQueue<Pair<Double, RTreeNode>>(compareBy { it.first })
         queue.offer(Pair(point.distance(root!!.envelope), root!!))
 
         while (queue.isNotEmpty()) {
@@ -250,7 +251,7 @@ class KhcSTRtree(
             if (result.size >= k && distance > result.peek().first) break
 
             when (node) {
-                is STRNode.LeafNode -> {
+                is RTreeNode.LeafNode -> {
                     // 리프 노드의 경우 각 아이템을 검사
                     for (item in node.geometries) {
                         val itemDistance = point.distance(item.envelopeInternal)
@@ -264,7 +265,7 @@ class KhcSTRtree(
                     }
                 }
 
-                is STRNode.InternalNode -> {
+                is RTreeNode.InternalNode -> {
                     // 내부 노드의 경우 자식 노드들을 우선순위 큐에 추가
                     for (child in node.children) {
                         val childDistance = point.distance(child.envelope)
@@ -280,74 +281,32 @@ class KhcSTRtree(
         return result.map { it.second }.reversed()
     }
 }
-
-/**
- * STR-Tree의 노드를 나타내는 sealed 클래스
- */
-sealed class STRNode {
-    abstract var envelope: Envelope
-    abstract var depth: Int
-    abstract var parent: InternalNode?
-
-    /**
-     * 리프 노드: 실제 데이터 아이템을 저장
-     */
-    class LeafNode(
-        override var envelope: Envelope,
-        override var depth: Int,
-        val geometries: List<Geometry>,
-        override var parent: InternalNode? = null,
-    ) : STRNode()
-
-    /**
-     * 내부 노드: 자식 노드들을 저장
-     */
-    class InternalNode(
-        override var envelope: Envelope,
-        override var depth: Int,
-        val children: List<STRNode>,
-        override var parent: InternalNode? = null,
-    ) : STRNode()
-
-    /**
-     * 노드를 MBR View 에서 보여주기 위한 데이터로 변환
-     */
-    fun toMbrViewData(): Map<String, Any?> {
-        val json = mutableMapOf<String, Any?>(
-            "mbr" to mapOf(
-                "minX" to envelope.minX,
-                "maxX" to envelope.maxX,
-                "minY" to envelope.minY,
-                "maxY" to envelope.maxY
-            ),
-            "level" to depth
-        )
-
-        when (this) {
-            is LeafNode -> {
-                json["type"] = "leaf"
-                json["items"] = geometries.map { item ->
-                    mapOf(
-                        "mbr" to mapOf(
-                            "minX" to item.envelopeInternal.minX,
-                            "maxX" to item.envelopeInternal.maxX,
-                            "minY" to item.envelopeInternal.minY,
-                            "maxY" to item.envelopeInternal.maxY
-                        ),
-                        "data" to mapOf(
-                            "envelope" to item.envelopeInternal,
-                            "item" to item
-                        )
-                    )
-                }
-            }
-
-            is InternalNode -> {
-                json["type"] = "internal"
-                json["children"] = children.map { it.toMbrViewData() }
-            }
-        }
-
-        return json
-    }
-}
+//
+///**
+// * STR-Tree의 노드를 나타내는 sealed 클래스
+// */
+//sealed class STRNode {
+//    abstract var envelope: Envelope
+//    abstract var depth: Int
+//    abstract var parent: InternalNode?
+//
+//    /**
+//     * 리프 노드: 실제 데이터 아이템을 저장
+//     */
+//    class LeafNode(
+//        override var envelope: Envelope,
+//        override var depth: Int,
+//        val geometries: List<Geometry>,
+//        override var parent: InternalNode? = null,
+//    ) : STRNode()
+//
+//    /**
+//     * 내부 노드: 자식 노드들을 저장
+//     */
+//    class InternalNode(
+//        override var envelope: Envelope,
+//        override var depth: Int,
+//        val children: List<STRNode>,
+//        override var parent: InternalNode? = null,
+//    ) : STRNode()
+//}

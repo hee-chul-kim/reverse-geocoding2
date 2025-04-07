@@ -3,6 +3,7 @@ package com.tmapmobility.reversegeocoding2.service.rtree
 import com.tmapmobility.reversegeocoding2.service.SpatialDataModel
 import com.tmapmobility.reversegeocoding2.service.rtree.split.DefaultSplitStrategy
 import com.tmapmobility.reversegeocoding2.service.rtree.split.NodeSplitStrategy
+import com.tmapmobility.reversegeocoding2.util.computeBoundingBox
 import com.tmapmobility.reversegeocoding2.util.plus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
@@ -18,9 +19,9 @@ class RTree(
     var root: RTreeNode? = null
         private set
 
-    override fun query(range: Envelope): List<Geometry> {
+    override fun query(searchEnv: Envelope): List<Geometry> {
         val result = mutableListOf<Geometry>()
-        root?.let { search(it, range, result) }
+        root?.let { search(it, searchEnv, result) }
         return result
     }
 
@@ -28,11 +29,11 @@ class RTree(
         if (!node.envelope.intersects(range)) return
 
         when (node) {
-            is RTreeLeafNode -> {
+            is RTreeNode.LeafNode -> {
                 result.addAll(node.geometries.filter { it.envelopeInternal.intersects(range) })
             }
 
-            is RTreeInternalNode -> {
+            is RTreeNode.InternalNode -> {
                 node.children.forEach { search(it, range, result) }
             }
         }
@@ -40,14 +41,14 @@ class RTree(
 
     override fun insert(geometry: Geometry) {
         if (root == null) {
-            root = RTreeLeafNode(mutableListOf(geometry)).apply {
+            root = RTreeNode.LeafNode(mutableListOf(geometry)).apply {
                 depth = 0  // root의 depth는 0
             }
         } else {
             val leaf = findLeafNode(root!!, geometry)
             leaf.geometries.add(geometry)
             // 리프 노드의 boundingBox 재계산
-            leaf.envelope = RTreeLeafNode.computeBoundingBox(leaf.geometries)
+            leaf.envelope = computeBoundingBox(leaf.geometries)
             // 부모 노드들의 boundingBox도 재계산
             updateParentBoundingBoxes(leaf)
 
@@ -58,15 +59,13 @@ class RTree(
         }
     }
 
-    private fun findLeafNode(node: RTreeNode, geometry: Geometry): RTreeLeafNode {
+    private fun findLeafNode(node: RTreeNode, geometry: Geometry): RTreeNode.LeafNode {
         return when (node) {
-            is RTreeLeafNode -> node
-            is RTreeInternalNode -> {
+            is RTreeNode.LeafNode -> node
+            is RTreeNode.InternalNode -> {
                 val bestFit = bestFit(node.children, geometry)
                 findLeafNode(bestFit, geometry)
             }
-
-            else -> throw IllegalStateException("Unknown node type")
         }
     }
 
@@ -87,26 +86,26 @@ class RTree(
 
         // 새로 생성된 노드들의 바운딩 박스 업데이트
         when (left) {
-            is RTreeLeafNode -> left.envelope = RTreeLeafNode.computeBoundingBox(left.geometries)
-            is RTreeInternalNode -> left.envelope = RTreeInternalNode.computeBoundingBox(left.children)
+            is RTreeNode.LeafNode -> left.envelope = computeBoundingBox(left.geometries)
+            is RTreeNode.InternalNode -> left.envelope = RTreeNode.InternalNode.computeBoundingBox(left.children)
         }
         when (right) {
-            is RTreeLeafNode -> right.envelope = RTreeLeafNode.computeBoundingBox(right.geometries)
-            is RTreeInternalNode -> right.envelope = RTreeInternalNode.computeBoundingBox(right.children)
+            is RTreeNode.LeafNode -> right.envelope = computeBoundingBox(right.geometries)
+            is RTreeNode.InternalNode -> right.envelope = RTreeNode.InternalNode.computeBoundingBox(right.children)
         }
 
         if (root == node) {
-            root = RTreeInternalNode(mutableListOf(left, right)).apply {
+            root = RTreeNode.InternalNode(mutableListOf(left, right)).apply {
                 depth = 0  // root의 depth는 0
                 left.parent = this
                 right.parent = this
                 left.depth = 1  // root의 자식들의 depth는 1
                 right.depth = 1
                 // root의 바운딩 박스 업데이트
-                envelope = RTreeInternalNode.computeBoundingBox(children)
+                envelope = RTreeNode.InternalNode.computeBoundingBox(children)
             }
         } else {
-            val parent = node.parent as RTreeInternalNode
+            val parent = node.parent as RTreeNode.InternalNode
             parent.children.remove(node)
             parent.children.addAll(listOf(left, right))
             left.parent = parent
@@ -126,7 +125,7 @@ class RTree(
     private fun updateParentBoundingBoxes(node: RTreeNode) {
         var current = node.parent
         while (current != null) {
-            current.envelope = RTreeInternalNode.computeBoundingBox(current.children)
+            current.envelope = RTreeNode.InternalNode.computeBoundingBox(current.children)
             current = current.parent
         }
     }
@@ -140,16 +139,12 @@ class RTree(
         if (node == null) return Pair(depth, 0)
 
         return when (node) {
-            is RTreeLeafNode -> Pair(depth, 1)
-            is RTreeInternalNode -> {
+            is RTreeNode.LeafNode -> Pair(depth, 1)
+            is RTreeNode.InternalNode -> {
                 val childStats = node.children.map { calculateStats(it, depth + 1) }
                 val maxChildDepth = childStats.maxOf { it.first }
                 val totalNodes = childStats.sumOf { it.second } + 1
                 Pair(maxChildDepth, totalNodes)
-            }
-
-            else -> {
-                throw IllegalStateException("Unknown node type")
             }
         }
     }

@@ -7,13 +7,9 @@ import kotlin.system.measureTimeMillis
 @Service
 class RtreeSearchService(
     val shapeLoader: ShapeLoader
-) : SearchService {
+) : LocalSearchService {
 
     override lateinit var spatialDataModel: RTree
-
-    override fun getVisualizationData(): NodeData? {
-        return spatialDataModel.root?.let { convertToNodeData(it) }
-    }
 
     override fun createSpatialIndex() {
         logger.info { "Rtree 빌드 시작" }
@@ -22,4 +18,9 @@ class RtreeSearchService(
         }
         logger.info { "STRtree 빌드 완료 - 소요 시간: ${buildTime}ms" }
     }
+
+    override fun getVisualizationData(): NodeData? {
+        return spatialDataModel.root?.convertToNodeData()
+    }
+
 }

@@ -1,89 +1,119 @@
 package com.tmapmobility.reversegeocoding2.service.rtree
 
+import com.tmapmobility.reversegeocoding2.service.MBRData
+import com.tmapmobility.reversegeocoding2.service.NodeData
+import com.tmapmobility.reversegeocoding2.util.computeBoundingBox
 import com.tmapmobility.reversegeocoding2.util.plus
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
-abstract class RTreeNode {
+sealed class RTreeNode {
     abstract var envelope: Envelope
     abstract var depth: Int
-    abstract var parent: RTreeInternalNode?
+    abstract var parent: InternalNode?
 
     /**
      * 엔트리를 노드에 삽입
      * @param entry 삽입할 엔트리 (Geometry 또는 RTreeNode)
      */
     abstract fun insertEntry(entry: Any)
-}
 
-class RTreeLeafNode(
-    var geometries: MutableList<Geometry>
-) : RTreeNode() {
-    override var envelope: Envelope = computeBoundingBox(geometries)
-    override var depth: Int = 0
-    override var parent: RTreeInternalNode? = null
+    class LeafNode(
+        var geometries: MutableList<Geometry>
+    ) : RTreeNode() {
+        override var envelope: Envelope = computeBoundingBox(geometries)
+        override var depth: Int = 0
+        override var parent: InternalNode? = null
 
-    companion object {
-        fun computeBoundingBox(geometries: List<Geometry>): Envelope {
-            if (geometries.isEmpty()) {
-                return Envelope()
+        constructor(envelope: Envelope, depth: Int, geometries: MutableList<Geometry>) : this(geometries) {
+            this.envelope = envelope
+            this.depth = depth
+        }
+
+        override fun insertEntry(entry: Any) {
+            if (entry !is Geometry) {
+                throw IllegalArgumentException("Leaf node can only insert Geometry")
             }
-            val minX = geometries.minOf { it.envelopeInternal.minX }
-            val minY = geometries.minOf { it.envelopeInternal.minY }
-            val maxX = geometries.maxOf { it.envelopeInternal.maxX }
-            val maxY = geometries.maxOf { it.envelopeInternal.maxY }
-            return Envelope(minX, maxX, minY, maxY)
+            geometries.add(entry)
+            envelope += entry.envelopeInternal
         }
     }
 
-    override fun insertEntry(entry: Any) {
-        if (entry !is Geometry) {
-            throw IllegalArgumentException("Leaf node can only insert Geometry")
-        }
-        add(entry)
-    }
+    class InternalNode(
+        var children: MutableList<RTreeNode>
+    ) : RTreeNode() {
+        override var envelope: Envelope = computeBoundingBox(children)
+        override var depth: Int = 0
+        override var parent: InternalNode? = null
 
-    private fun add(geometry: Geometry) {
-        geometries.add(geometry)
-        envelope += geometry.envelopeInternal
-    }
-}
-
-class RTreeInternalNode(
-    var children: MutableList<RTreeNode>
-) : RTreeNode() {
-    override var envelope: Envelope = computeBoundingBox(children)
-    override var depth: Int = 0
-    override var parent: RTreeInternalNode? = null
-
-    init {
-        children.forEach { child ->
-            child.parent = this
-            child.depth = this.depth + 1
-        }
-    }
-
-    override fun insertEntry(entry: Any) {
-        if (entry !is RTreeNode) {
-            throw IllegalArgumentException("Internal node can only insert RTreeNode")
-        }
-        children.add(entry)
-        entry.parent = this
-        entry.depth = this.depth + 1
-        // 바운딩 박스 업데이트
-        envelope = computeBoundingBox(children)
-    }
-
-    companion object {
-        fun computeBoundingBox(nodes: List<RTreeNode>): Envelope {
-            if (nodes.isEmpty()) {
-                return Envelope()
+        init {
+            children.forEach { child ->
+                child.parent = this
+                child.depth = this.depth + 1
             }
-            val minX = nodes.minOf { it.envelope.minX }
-            val minY = nodes.minOf { it.envelope.minY }
-            val maxX = nodes.maxOf { it.envelope.maxX }
-            val maxY = nodes.maxOf { it.envelope.maxY }
-            return Envelope(minX, maxX, minY, maxY)
+        }
+
+        constructor(envelope: Envelope, depth: Int, nodes: MutableList<RTreeNode>) : this(nodes) {
+            this.envelope = envelope
+            this.depth = depth
+        }
+
+        override fun insertEntry(entry: Any) {
+            if (entry !is RTreeNode) {
+                throw IllegalArgumentException("Internal node can only insert RTreeNode")
+            }
+            children.add(entry)
+            entry.parent = this
+            entry.depth = this.depth + 1
+            // 바운딩 박스 업데이트
+            envelope += entry.envelope
+        }
+
+        companion object {
+            fun computeBoundingBox(nodes: List<RTreeNode>): Envelope {
+                if (nodes.isEmpty()) {
+                    return Envelope()
+                }
+                val minX = nodes.minOf { it.envelope.minX }
+                val minY = nodes.minOf { it.envelope.minY }
+                val maxX = nodes.maxOf { it.envelope.maxX }
+                val maxY = nodes.maxOf { it.envelope.maxY }
+                return Envelope(minX, maxX, minY, maxY)
+            }
         }
     }
+
+    fun convertToNodeData(): NodeData {
+        val id = System.identityHashCode(this).toString()
+        return when (this) {
+            is InternalNode -> NodeData(
+                id = id,
+                isLeaf = false,
+                mbr = convertToMBRData(envelope),
+                children = children.map { it.convertToNodeData() },
+                depth = depth,
+                size = children.size
+            )
+
+            is LeafNode -> NodeData(
+                id = id,
+                isLeaf = true,
+                mbr = convertToMBRData(envelope),
+                children = emptyList(),
+                depth = depth,
+                size = geometries.size
+            )
+        }
+    }
+
+    private fun convertToMBRData(envelope: Envelope): MBRData {
+        return MBRData(
+            minX = envelope.minX,
+            minY = envelope.minY,
+            maxX = envelope.maxX,
+            maxY = envelope.maxY
+        )
+    }
 }
+
+

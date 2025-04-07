@@ -7,7 +7,7 @@ import org.locationtech.jts.geom.Coordinate
 import org.springframework.stereotype.Service
 
 @Service
-class PostgisSearchService(
+class PostgisLocalSearchService(
     private val jijukRepository: JijukRepository
 ) : SearchService {
 
@@ -18,8 +18,4 @@ class PostgisSearchService(
             ?: SearchResponse()
     }
 
-    override fun getVisualizationData(): NodeData? {
-        // PostGIS는 트리 시각화를 지원하지 않음
-        return null
-    }
 }

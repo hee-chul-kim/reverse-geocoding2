@@ -1,8 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.RTreeInternalNode
-import com.tmapmobility.reversegeocoding2.service.rtree.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
@@ -22,9 +20,8 @@ class LinearSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         // 노드 타입에 따라 자식 요소 추출
         val children = when (node) {
-            is RTreeLeafNode -> node.geometries.toMutableList()
-            is RTreeInternalNode -> node.children.toMutableList()
-            else -> throw IllegalArgumentException("Unknown node type")
+            is RTreeNode.LeafNode -> node.geometries.toMutableList()
+            is RTreeNode.InternalNode -> node.children.toMutableList()
         }
 
         // 각 자식 요소의 MBR 계산
@@ -92,25 +89,25 @@ class LinearSplitStrategy : NodeSplitStrategy {
         }
 
         // 새로운 노드 생성 (원본 노드의 depth와 parent 정보 유지)
-        val left = if (node is RTreeLeafNode) {
-            RTreeLeafNode(group1.map { it as Geometry }.toMutableList()).apply {
+        val left = if (node is RTreeNode.LeafNode) {
+            RTreeNode.LeafNode(group1.map { it as Geometry }.toMutableList()).apply {
                 depth = node.depth
                 parent = node.parent
             }
         } else {
-            RTreeInternalNode(group1.map { it as RTreeNode }.toMutableList()).apply {
+            RTreeNode.InternalNode(group1.map { it as RTreeNode }.toMutableList()).apply {
                 depth = node.depth
                 parent = node.parent
             }
         }
 
-        val right = if (node is RTreeLeafNode) {
-            RTreeLeafNode(group2.map { it as Geometry }.toMutableList()).apply {
+        val right = if (node is RTreeNode.LeafNode) {
+            RTreeNode.LeafNode(group2.map { it as Geometry }.toMutableList()).apply {
                 depth = node.depth
                 parent = node.parent
             }
         } else {
-            RTreeInternalNode(group2.map { it as RTreeNode }.toMutableList()).apply {
+            RTreeNode.InternalNode(group2.map { it as RTreeNode }.toMutableList()).apply {
                 depth = node.depth
                 parent = node.parent
             }

@@ -1,8 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.RTreeInternalNode
-import com.tmapmobility.reversegeocoding2.service.rtree.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.RTreeNode
 
 /**
@@ -33,9 +31,8 @@ interface NodeSplitStrategy {
      */
     fun needsSplit(node: RTreeNode): Boolean {
         val size = when (node) {
-            is RTreeLeafNode -> node.geometries.size
-            is RTreeInternalNode -> node.children.size
-            else -> 0
+            is RTreeNode.LeafNode -> node.geometries.size
+            is RTreeNode.InternalNode -> node.children.size
         }
         return size >= MIN_ENTRIES_PER_NODE * 2 || needsCustomSplit(node)
     }
