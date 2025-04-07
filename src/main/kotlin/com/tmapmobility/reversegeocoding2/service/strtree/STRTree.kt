@@ -1,21 +1,20 @@
 package com.tmapmobility.reversegeocoding2.service.strtree
 
 import org.locationtech.jts.geom.Envelope
+import org.locationtech.jts.geom.Geometry
+import java.util.*
 import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.min
-import java.util.PriorityQueue
 
 /**
  * STR-Tree (Sort-Tile-Recursive R-tree) 구현
  * 벌크 로딩에 최적화된 R-tree 변형
  * @param nodeCapacity 노드당 최대 항목 수
  */
-class STRTree<T : Any>(
+class KhcSTRtree(
     private val nodeCapacity: Int = DEFAULT_NODE_CAPACITY
 ) {
-    private var root: STRNode<T>? = null
-    private val items = mutableListOf<STRItem<T>>()
+    private var root: STRNode? = null
+    private val items = mutableListOf<STRItem>()
     private var isBuilt = false
 
     companion object {
@@ -26,9 +25,9 @@ class STRTree<T : Any>(
      * 아이템을 트리에 삽입
      * 실제 트리 구성은 build() 호출 시점까지 지연됨
      */
-    fun insert(envelope: Envelope, item: T) {
+    fun insert(item: Geometry) {
         require(!isBuilt) { "트리가 이미 구축되어 있어 새로운 아이템을 삽입할 수 없습니다." }
-        items.add(STRItem(envelope, item))
+        items.add(STRItem(item.envelopeInternal, item))
     }
 
     /**
@@ -45,7 +44,7 @@ class STRTree<T : Any>(
     /**
      * STR 알고리즘을 사용하여 레벨별로 노드를 생성
      */
-    private fun createLevel(items: List<STRItem<T>>, level: Int): STRNode<T> {
+    private fun createLevel(items: List<STRItem>, level: Int): STRNode {
         // 아이템이 노드 용량 이하면 바로 리프 노드 생성
         if (items.size <= nodeCapacity) {
             val envelope = computeEnvelope(items.map { it.envelope })
@@ -64,8 +63,8 @@ class STRTree<T : Any>(
             .map { slice -> slice.sortedBy { it.envelope.minY } }
 
         // 4. 각 슬라이스에서 노드 크기만큼 그룹화
-        val nodes = mutableListOf<STRNode<T>>()
-        
+        val nodes = mutableListOf<STRNode>()
+
         for (slice in slices) {
             val groups = slice.chunked(nodeCapacity)
             for (group in groups) {
@@ -86,7 +85,7 @@ class STRTree<T : Any>(
     /**
      * 내부 노드 레벨 생성
      */
-    private fun createInternalLevel(nodes: List<STRNode<T>>, level: Int): STRNode<T> {
+    private fun createInternalLevel(nodes: List<STRNode>, level: Int): STRNode {
         if (nodes.size <= nodeCapacity) {
             val envelope = computeEnvelope(nodes.map { it.envelope })
             return STRNode.InternalNode(envelope, level, nodes)
@@ -104,8 +103,8 @@ class STRTree<T : Any>(
             .map { slice -> slice.sortedBy { it.envelope.minY } }
 
         // 각 슬라이스에서 노드 크기만큼 그룹화하여 상위 노드 생성
-        val parentNodes = mutableListOf<STRNode<T>>()
-        
+        val parentNodes = mutableListOf<STRNode>()
+
         for (slice in slices) {
             val groups = slice.chunked(nodeCapacity)
             for (group in groups) {
@@ -128,7 +127,7 @@ class STRTree<T : Any>(
      */
     private fun computeEnvelope(envelopes: List<Envelope>): Envelope {
         if (envelopes.isEmpty()) throw IllegalArgumentException("Envelopes list cannot be empty")
-        
+
         val result = Envelope(envelopes[0])
         for (i in 1 until envelopes.size) {
             result.expandToInclude(envelopes[i])
@@ -139,15 +138,15 @@ class STRTree<T : Any>(
     /**
      * 주어진 영역과 겹치는 모든 아이템을 검색
      */
-    fun query(searchEnv: Envelope): List<T> {
+    fun query(searchEnv: Envelope): List<Geometry> {
         if (!isBuilt) build()
-        
-        val result = mutableListOf<T>()
+
+        val result = mutableListOf<Geometry>()
         root?.let { queryInternal(it, searchEnv, result) }
         return result
     }
 
-    private fun queryInternal(node: STRNode<T>, searchEnv: Envelope, result: MutableList<T>) {
+    private fun queryInternal(node: STRNode, searchEnv: Envelope, result: MutableList<Geometry>) {
         // 현재 노드의 MBR이 검색 영역과 겹치지 않으면 종료
         if (!node.envelope.intersects(searchEnv)) return
 
@@ -160,6 +159,7 @@ class STRTree<T : Any>(
                     }
                 }
             }
+
             is STRNode.InternalNode -> {
                 // 내부 노드의 경우 자식 노드들을 재귀적으로 검사
                 for (child in node.children) {
@@ -172,21 +172,21 @@ class STRTree<T : Any>(
     /**
      * 주어진 좌표에서 가장 가까운 아이템을 검색
      */
-    fun nearestNeighbor(x: Double, y: Double): T? {
+    fun nearestNeighbor(x: Double, y: Double): Geometry? {
         if (!isBuilt) build()
         if (root == null) return null
 
         val point = Envelope(x, x, y, y)
         var minDistance = Double.POSITIVE_INFINITY
-        var nearest: T? = null
+        var nearest: Geometry? = null
 
         // 우선순위 큐를 사용하여 가장 가까운 노드부터 탐색
-        val queue = PriorityQueue<Pair<Double, STRNode<T>>>(compareBy { it.first })
+        val queue = PriorityQueue<Pair<Double, STRNode>>(compareBy { it.first })
         queue.offer(Pair(point.distance(root!!.envelope), root!!))
 
         while (queue.isNotEmpty()) {
             val (distance, node) = queue.poll()
-            
+
             // 현재까지 찾은 최단 거리보다 노드까지의 거리가 더 멀면 탐색 중단
             if (distance > minDistance) break
 
@@ -201,6 +201,7 @@ class STRTree<T : Any>(
                         }
                     }
                 }
+
                 is STRNode.InternalNode -> {
                     // 내부 노드의 경우 자식 노드들을 우선순위 큐에 추가
                     for (child in node.children) {
@@ -219,21 +220,21 @@ class STRTree<T : Any>(
     /**
      * k개의 최근접 이웃을 검색
      */
-    fun nearestNeighbors(x: Double, y: Double, k: Int): List<T> {
+    fun nearestNeighbors(x: Double, y: Double, k: Int): List<Geometry> {
         if (k <= 0) return emptyList()
         if (!isBuilt) build()
         if (root == null) return emptyList()
 
         val point = Envelope(x, x, y, y)
-        val result = PriorityQueue<Pair<Double, T>>(compareByDescending { it.first })
+        val result = PriorityQueue<Pair<Double, Geometry>>(compareByDescending { it.first })
 
         // 우선순위 큐를 사용하여 가장 가까운 노드부터 탐색
-        val queue = PriorityQueue<Pair<Double, STRNode<T>>>(compareBy { it.first })
+        val queue = PriorityQueue<Pair<Double, STRNode>>(compareBy { it.first })
         queue.offer(Pair(point.distance(root!!.envelope), root!!))
 
         while (queue.isNotEmpty()) {
             val (distance, node) = queue.poll()
-            
+
             // 현재까지 찾은 k번째 최단 거리보다 노드까지의 거리가 더 멀면 탐색 중단
             if (result.size >= k && distance > result.peek().first) break
 
@@ -242,7 +243,7 @@ class STRTree<T : Any>(
                     // 리프 노드의 경우 각 아이템을 검사
                     for (item in node.items) {
                         val itemDistance = point.distance(item.envelope)
-                        
+
                         if (result.size < k) {
                             result.offer(Pair(itemDistance, item.item))
                         } else if (itemDistance < result.peek().first) {
@@ -251,6 +252,7 @@ class STRTree<T : Any>(
                         }
                     }
                 }
+
                 is STRNode.InternalNode -> {
                     // 내부 노드의 경우 자식 노드들을 우선순위 큐에 추가
                     for (child in node.children) {
@@ -270,7 +272,7 @@ class STRTree<T : Any>(
     /**
      * 트리의 루트 노드를 반환
      */
-    fun getRoot(): STRNode<T>? {
+    fun getRoot(): STRNode? {
         if (!isBuilt) build()
         return root
     }
@@ -287,27 +289,27 @@ class STRTree<T : Any>(
 /**
  * STR-Tree의 노드를 나타내는 sealed 클래스
  */
-sealed class STRNode<T : Any> {
+sealed class STRNode {
     abstract val envelope: Envelope
     abstract val level: Int
 
     /**
      * 리프 노드: 실제 데이터 아이템을 저장
      */
-    class LeafNode<T : Any>(
+    class LeafNode(
         override val envelope: Envelope,
         override val level: Int,
-        val items: List<STRItem<T>>
-    ) : STRNode<T>()
+        val items: List<STRItem>
+    ) : STRNode()
 
     /**
      * 내부 노드: 자식 노드들을 저장
      */
-    class InternalNode<T : Any>(
+    class InternalNode(
         override val envelope: Envelope,
         override val level: Int,
-        val children: List<STRNode<T>>
-    ) : STRNode<T>()
+        val children: List<STRNode>
+    ) : STRNode()
 
     /**
      * 노드를 JSON 형식으로 변환
@@ -338,6 +340,7 @@ sealed class STRNode<T : Any> {
                     )
                 }
             }
+
             is InternalNode -> {
                 json["type"] = "internal"
                 json["children"] = children.map { it.toJson() }
@@ -351,9 +354,9 @@ sealed class STRNode<T : Any> {
 /**
  * 공간 데이터 아이템을 나타내는 클래스
  */
-data class STRItem<T : Any>(
+data class STRItem(
     val envelope: Envelope,
-    val item: T
+    val item: Geometry
 )
 
 // Envelope 확장 함수: 두 Envelope 간의 거리 계산

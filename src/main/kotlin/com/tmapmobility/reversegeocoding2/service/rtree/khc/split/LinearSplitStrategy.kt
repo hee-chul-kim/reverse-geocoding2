@@ -1,28 +1,28 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
 /**
  * Linear Split 전략 구현
- * 
+ *
  * 이 전략은 Quadratic Split보다 단순하면서도 효율적인 분할을 제공:
  * 1. 각 차원(x, y)에서 가장 멀리 떨어진 두 개의 MBR을 찾음
  * 2. 분산이 가장 큰 차원을 선택
  * 3. 선택된 차원에서 가장 멀리 떨어진 두 MBR을 시드로 선택
  * 4. 나머지 요소들을 시드와의 거리에 따라 두 그룹으로 분할
- * 
+ *
  * 시간 복잡도: O(n)
  */
 class LinearSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         // 노드 타입에 따라 자식 요소 추출
         val children = when (node) {
-            is RTreeLeafNode -> node.polygons.toMutableList()
+            is RTreeLeafNode -> node.geometries.toMutableList()
             is RTreeInternalNode -> node.children.toMutableList()
             else -> throw IllegalArgumentException("Unknown node type")
         }
@@ -52,14 +52,14 @@ class LinearSplitStrategy : NodeSplitStrategy {
         val group2 = mutableListOf<Any>()
 
         // 시드에 해당하는 요소들을 각 그룹에 추가
-        val seed1Index = children.indexOfFirst { 
+        val seed1Index = children.indexOfFirst {
             when (it) {
                 is Geometry -> it.envelopeInternal == seed1
                 is RTreeNode -> it.boundingBox == seed1
                 else -> false
             }
         }
-        val seed2Index = children.indexOfFirst { 
+        val seed2Index = children.indexOfFirst {
             when (it) {
                 is Geometry -> it.envelopeInternal == seed2
                 is RTreeNode -> it.boundingBox == seed2
@@ -121,7 +121,7 @@ class LinearSplitStrategy : NodeSplitStrategy {
 
     /**
      * 주어진 차원에서 가장 멀리 떨어진 두 개의 MBR을 찾음
-     * 
+     *
      * @param boundingBoxes MBR 리스트
      * @param isXDimension x차원 여부 (true: x차원, false: y차원)
      * @return 가장 멀리 떨어진 두 개의 MBR 쌍
@@ -149,14 +149,14 @@ class LinearSplitStrategy : NodeSplitStrategy {
 
     /**
      * 주어진 차원의 분산을 계산
-     * 
+     *
      * @param boundingBoxes MBR 리스트
      * @param isXDimension x차원 여부 (true: x차원, false: y차원)
      * @return 분산 값
      */
     private fun calculateVariance(boundingBoxes: List<Envelope>, isXDimension: Boolean): Double {
-        val values = boundingBoxes.map { 
-            if (isXDimension) (it.minX + it.maxX) / 2 else (it.minY + it.maxY) / 2 
+        val values = boundingBoxes.map {
+            if (isXDimension) (it.minX + it.maxX) / 2 else (it.minY + it.maxY) / 2
         }
         val mean = values.average()
         return values.map { (it - mean) * (it - mean) }.average()
@@ -164,7 +164,7 @@ class LinearSplitStrategy : NodeSplitStrategy {
 
     /**
      * MBR과 시드 MBR 사이의 거리를 계산
-     * 
+     *
      * @param box MBR
      * @param seed 시드 MBR
      * @return 두 MBR의 중심점 사이 거리
@@ -177,7 +177,7 @@ class LinearSplitStrategy : NodeSplitStrategy {
 
         return Math.sqrt(
             (boxCenterX - seedCenterX) * (boxCenterX - seedCenterX) +
-            (boxCenterY - seedCenterY) * (boxCenterY - seedCenterY)
+                    (boxCenterY - seedCenterY) * (boxCenterY - seedCenterY)
         )
     }
 } 

@@ -40,43 +40,43 @@
       }
       .mbr {
         fill: none;
-        stroke-width: 1.5px;
-        stroke-opacity: 0.8;
+        stroke-width: 1px;
+        stroke-opacity: 0.9;
         pointer-events: none;
       }
       .mbr-level-0 {
-        stroke: #ff0000;
-      } /* 빨강 - 루트 */
+        stroke: #e41a1c;
+      } /* 선명한 빨강 */
       .mbr-level-1 {
+        stroke: #377eb8;
+      } /* 선명한 파랑 */
+      .mbr-level-2 {
+        stroke: #4daf4a;
+      } /* 선명한 초록 */
+      .mbr-level-3 {
+        stroke: #984ea3;
+      } /* 보라 */
+      .mbr-level-4 {
         stroke: #ff7f00;
       } /* 주황 */
-      .mbr-level-2 {
-        stroke: #ffff00;
-      } /* 노랑 */
-      .mbr-level-3 {
-        stroke: #00ff00;
-      } /* 초록 */
-      .mbr-level-4 {
-        stroke: #0000ff;
-      } /* 파랑 */
       .mbr-level-5 {
-        stroke: #4b0082;
-      } /* 남색 */
+        stroke: #ffff33;
+      } /* 노랑 */
       .mbr-level-6 {
-        stroke: #9400d3;
-      } /* 보라 */
-      .mbr-level-7 {
-        stroke: #800080;
-      } /* 자주색 */
-      .mbr-level-8 {
-        stroke: #008080;
-      } /* 청록색 */
-      .mbr-level-9 {
-        stroke: #808000;
-      } /* 올리브색 */
-      .mbr-level-10 {
-        stroke: #800000;
+        stroke: #a65628;
       } /* 갈색 */
+      .mbr-level-7 {
+        stroke: #f781bf;
+      } /* 분홍 */
+      .mbr-level-8 {
+        stroke: #00ced1;
+      } /* 청록 */
+      .mbr-level-9 {
+        stroke: #a0522d;
+      } /* 적갈색 */
+      .mbr-level-10 {
+        stroke: #6a5acd;
+      } /* 슬레이트 블루 */
       [class^="mbr-level-"] {
         pointer-events: none;
       }
@@ -101,17 +101,17 @@
       function createLevelControls(maxDepth) {
         const levelControls = document.querySelector(".level-controls");
         const colors = [
-          "#ff0000", // 빨강 - 루트
-          "#ff7f00", // 주황
-          "#ffff00", // 노랑
-          "#00ff00", // 초록
-          "#0000ff", // 파랑
-          "#4b0082", // 남색
-          "#9400d3", // 보라
-          "#800080", // 자주색
-          "#008080", // 청록색
-          "#808000", // 올리브색
-          "#800000", // 갈색
+          "#E41A1C", // 선명한 빨강
+          "#377EB8", // 선명한 파랑
+          "#4DAF4A", // 선명한 초록
+          "#984EA3", // 보라
+          "#FF7F00", // 주황
+          "#FFFF33", // 노랑
+          "#A65628", // 갈색
+          "#F781BF", // 분홍
+          "#00CED1", // 청록
+          "#A0522D", // 적갈색
+          "#6A5ACD", // 슬레이트 블루
         ];
         const levelNames = [
           "루트 레벨",

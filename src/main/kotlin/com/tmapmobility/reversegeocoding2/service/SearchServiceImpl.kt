@@ -1,13 +1,8 @@
-package com.tmapmobility.reversegeocoding2.service.rtree
+package com.tmapmobility.reversegeocoding2.service
 
 import com.tmapmobility.reversegeocoding2.geometryFactory
 import com.tmapmobility.reversegeocoding2.model.SearchResponse
-import com.tmapmobility.reversegeocoding2.service.SearchService
-import com.tmapmobility.reversegeocoding2.service.kdtree.KDTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
+import com.tmapmobility.reversegeocoding2.service.strtree.KhcSTRtree
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.geotools.api.data.FileDataStore
@@ -20,45 +15,27 @@ import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.geom.MultiPolygon
-import org.locationtech.jts.index.SpatialIndex
-import org.locationtech.jts.index.strtree.AbstractNode
-import org.locationtech.jts.index.strtree.STRtree
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Primary
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Service
 import java.nio.charset.Charset
 import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
 
-val logger = KotlinLogging.logger {}
-
-data class NodeData(
-    val id: String,
-    val isLeaf: Boolean,
-    val mbr: MBRData,
-    val children: List<NodeData>,
-    val depth: Int,
-    val size: Int
-)
-
-data class MBRData(
-    val minX: Double,
-    val minY: Double,
-    val maxX: Double,
-    val maxY: Double
-)
+private val logger = KotlinLogging.logger {}
 
 @Service
-class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: String,
-    private val rtreeFactory: RTreeFactory,
-    ): SearchService {
+@Primary
+class SearchServiceImpl(
+    @Value("\${shapefile.path}") private val shapefilePath: String
+) : SearchService {
 
-    private lateinit var rtree: SpatialIndex
+    private lateinit var spatialIndex: KhcSTRtree
     private lateinit var store: FileDataStore
-
     override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
         val point = geometryFactory.createPoint(Coordinate(lat, lon))
-        val candidates = rtree.query(point.envelopeInternal)
+        val candidates = spatialIndex.query(point.envelopeInternal)
         val polygons = candidates.filterIsInstance<MultiPolygon>()
         val polygon = polygons.firstOrNull { it.contains(point) }
         val userData = polygon?.userData as? Array<*>
@@ -79,14 +56,14 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
 
     @PostConstruct
     fun init() {
-        rtreeFactory.create().also { rtree = it }
+        spatialIndex = KhcSTRtree()
         thread {
             initFileDataStore()
-            createRtree()
+            createSpatialIndex()
         }
     }
 
-    private fun createRtree() {
+    private fun createSpatialIndex() {
         val source: SimpleFeatureSource = store.featureSource
         logger.info { "Shapefile에서 다각형 로딩 시작: $shapefilePath" }
 
@@ -100,8 +77,6 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
             var batchStartTime = System.currentTimeMillis()
             var batchCnt = 0L
 
-            // 먼저 모든 geometry를 리스트에 수집
-            val geometries = mutableListOf<Geometry>()
             val loadingTime = measureTimeMillis {
                 source.features.features().use { features ->
                     while (features.hasNext()) {
@@ -113,7 +88,7 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
 
                         if (geometry != null) {
                             geometry.userData = dbfRecord
-                            geometries.add(geometry)
+                            spatialIndex.insert(geometry)
                             cnt++
                             batchCnt++
 
@@ -143,24 +118,13 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                 - 전체 평균 처리 속도: ${cnt.toDouble() / loadingTime * 1000} polygons/sec
             """.trimIndent() }
 
-            // KDTree 생성 및 RTree 변환
-            logger.info { "KDTree 생성 시작" }
-            val treeCreationTime = measureTimeMillis {
-                val kdTree = KDTree(geometries)
-                kdTree.logTreeStats()
-                
-                // KDTree를 RTree로 변환
-                logger.info { "KDTree를 RTree로 변환 시작" }
-                rtree = kdTree.toRTree()
+            // STRtree 빌드
+            logger.info { "STRtree 빌드 시작" }
+            val buildTime = measureTimeMillis {
+                spatialIndex.build()
             }
+            logger.info { "STRtree 빌드 완료 - 소요 시간: ${buildTime}ms" }
 
-            logger.info { """
-                KDTree 생성 및 RTree 변환 완료
-                - 소요 시간: ${treeCreationTime}ms
-                - 평균 처리 속도: ${cnt.toDouble() / treeCreationTime * 1000} polygons/sec
-            """.trimIndent() }
-
-            (rtree as? RTree)?.logTreeStats()
         } catch (e: Exception) {
             logger.error(e) { "Shapefile에서 다각형 로딩 실패" }
         }
@@ -176,67 +140,28 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
                 throw IllegalArgumentException("Could not find data store for file: $shapefilePath")
     }
 
-    fun getTreeVisualizationData(): NodeData? {
-        return when (rtree) {
-            is RTree -> (rtree as RTree).root?.let { convertToNodeData(it) }
-            is STRtree -> convertToNodeData((rtree as STRtree).root)
-            else -> null
-        }
+    override fun getTreeVisualizationData(): NodeData? {
+        return spatialIndex.getRoot()?.let { convertToNodeData(it) }
     }
 
-    private fun convertToNodeData(node: RTreeNode, depth: Int = 0): NodeData {
+    private fun convertToNodeData(node: com.tmapmobility.reversegeocoding2.service.strtree.STRNode, depth: Int = 0): NodeData {
         val id = System.identityHashCode(node).toString()
-        return when {
-            depth >= 10 -> NodeData(
-                id = id,
-                isLeaf = true,
-                mbr = convertToMBRData(node.boundingBox),
-                children = emptyList(),
-                depth = depth,
-                size = when (node) {
-                    is RTreeLeafNode -> node.polygons.size
-                    is RTreeInternalNode -> node.children.size
-                    else -> 0
-                }
-            )
-            node is RTreeLeafNode -> NodeData(
-                id = id,
-                isLeaf = true,
-                mbr = convertToMBRData(node.boundingBox),
-                children = emptyList(),
-                depth = depth,
-                size = node.polygons.size
-            )
-            node is RTreeInternalNode -> NodeData(
+        return when (node) {
+            is com.tmapmobility.reversegeocoding2.service.strtree.STRNode.InternalNode -> NodeData(
                 id = id,
                 isLeaf = false,
-                mbr = convertToMBRData(node.boundingBox),
+                mbr = convertToMBRData(node.envelope),
                 children = node.children.map { convertToNodeData(it, depth + 1) },
                 depth = depth,
                 size = node.children.size
             )
-            else -> throw IllegalStateException("Unknown node type")
-        }
-    }
-
-    private fun convertToNodeData(node: AbstractNode, depth: Int = 0): NodeData {
-        val id = System.identityHashCode(node).toString()
-        return when {
-            depth >= 7 -> NodeData(
+            is com.tmapmobility.reversegeocoding2.service.strtree.STRNode.LeafNode -> NodeData(
                 id = id,
                 isLeaf = true,
-                mbr = convertToMBRData(node.bounds as Envelope),
+                mbr = convertToMBRData(node.envelope),
                 children = emptyList(),
                 depth = depth,
-                size = node.size()
-            )
-            else -> NodeData(
-                id = id,
-                isLeaf = true,
-                mbr = convertToMBRData(node.bounds as Envelope),
-                children = node.childBoundables.map { convertToNodeData(it as AbstractNode, depth + 1) },
-                depth = depth,
-                size = node.size()
+                size = node.items.size
             )
         }
     }
@@ -249,4 +174,4 @@ class RTreeService(@Value("\${shapefile.path}") private val shapefilePath: Strin
             maxY = envelope.maxY
         )
     }
-}
+} 

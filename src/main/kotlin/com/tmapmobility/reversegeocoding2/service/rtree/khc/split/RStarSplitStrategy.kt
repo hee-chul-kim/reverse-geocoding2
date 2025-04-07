@@ -1,16 +1,16 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 import kotlin.math.sqrt
 
 /**
  * R*-tree의 split 전략 구현
- * 
+ *
  * 특징:
  * 1. 여러 차원에서의 겹침 영역 최소화
  * 2. 둘레 길이 최소화로 더 좋은 MBR 형성
@@ -34,14 +34,14 @@ class RStarSplitStrategy : NodeSplitStrategy {
         }
 
         val entries = when (node) {
-            is RTreeLeafNode -> node.polygons.map { Entry(it.envelopeInternal, it) }
+            is RTreeLeafNode -> node.geometries.map { Entry(it.envelopeInternal, it) }
             is RTreeInternalNode -> node.children.map { Entry(it.boundingBox, it) }
             else -> throw IllegalArgumentException("Unknown node type")
         }
 
         // 최적의 분할 축과 인덱스 찾기
         val (axis, splitIndex) = findBestSplit(entries)
-        
+
         // 정렬된 엔트리들을 분할
         val sortedEntries = if (axis == 0) {
             entries.sortedBy { it.envelope.centre().x }
@@ -66,6 +66,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
                 }
                 Pair(left, right)
             }
+
             is RTreeInternalNode -> {
                 val left = RTreeInternalNode(group1.map { it.item as RTreeNode }.toMutableList()).apply {
                     depth = node.depth
@@ -77,20 +78,21 @@ class RStarSplitStrategy : NodeSplitStrategy {
                 }
                 Pair(left, right)
             }
+
             else -> throw IllegalArgumentException("Unknown node type")
         }
     }
 
     private fun tryReinsert(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         val entries = when (node) {
-            is RTreeLeafNode -> node.polygons.map { Entry(it.envelopeInternal, it) }
+            is RTreeLeafNode -> node.geometries.map { Entry(it.envelopeInternal, it) }
             is RTreeInternalNode -> node.children.map { Entry(it.boundingBox, it) }
             else -> throw IllegalArgumentException("Unknown node type")
         }
 
         // 노드의 중심점 계산
         val center = calculateNodeCenter(node.boundingBox)
-        
+
         // 엔트리들을 중심점으로부터의 거리에 따라 정렬
         val sortedEntries = entries.sortedBy { entry ->
             val entryCenter = Point2D(entry.envelope.centre().x, entry.envelope.centre().y)
@@ -109,7 +111,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
                     depth = node.depth
                     parent = node.parent
                 }
-                
+
                 // 재삽입할 엔트리들을 트리에 다시 삽입
                 entriesToReinsert.forEach { entry ->
                     tree.insert(entry.envelope, entry.item as Geometry)
@@ -118,6 +120,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
                 // split이 필요 없으므로 같은 노드를 반환
                 Pair(newNode, newNode)
             }
+
             is RTreeInternalNode -> {
                 val newNode = RTreeInternalNode(entriesToKeep.map { it.item as RTreeNode }.toMutableList()).apply {
                     depth = node.depth
@@ -132,6 +135,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
                 // split이 필요 없으므로 같은 노드를 반환
                 Pair(newNode, newNode)
             }
+
             else -> throw IllegalArgumentException("Unknown node type")
         }
     }
@@ -164,10 +168,11 @@ class RStarSplitStrategy : NodeSplitStrategy {
     }
 
     private data class Entry(val envelope: Envelope, val item: Any) {
-        val centre get() = Point2D(
-            (envelope.minX + envelope.maxX) / 2,
-            (envelope.minY + envelope.maxY) / 2
-        )
+        val centre
+            get() = Point2D(
+                (envelope.minX + envelope.maxX) / 2,
+                (envelope.minY + envelope.maxY) / 2
+            )
     }
 
     private data class Point2D(val x: Double, val y: Double)
@@ -232,7 +237,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
 
     /**
      * 두 바운딩 박스 간의 겹침 영역 계산
-     * 
+     *
      * @param box1 첫 번째 바운딩 박스
      * @param box2 두 번째 바운딩 박스
      * @return 겹침 영역의 면적 (겹치지 않는 경우 0.0)
@@ -285,12 +290,13 @@ class RStarSplitStrategy : NodeSplitStrategy {
         // 오버랩 검사
         when (node) {
             is RTreeLeafNode -> {
-                if (node.polygons.size < 2) return false
-                val boxes = node.polygons.map { it.envelopeInternal }
+                if (node.geometries.size < 2) return false
+                val boxes = node.geometries.map { it.envelopeInternal }
                 val totalOverlap = boxes.combinations().sumOf { (box1, box2) -> calculateOverlap(box1, box2) }
                 val avgOverlap = totalOverlap / (boxes.size * (boxes.size - 1) / 2.0)
                 return avgOverlap > calculateMaxOverlap(node.depth)
             }
+
             is RTreeInternalNode -> {
                 if (node.children.size < 2) return false
                 val boxes = node.children.map { it.boundingBox }
@@ -298,6 +304,7 @@ class RStarSplitStrategy : NodeSplitStrategy {
                 val avgOverlap = totalOverlap / (boxes.size * (boxes.size - 1) / 2.0)
                 return avgOverlap > calculateMaxOverlap(node.depth)
             }
+
             else -> return false
         }
     }

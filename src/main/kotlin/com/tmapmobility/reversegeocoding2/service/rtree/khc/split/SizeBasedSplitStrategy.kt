@@ -1,21 +1,20 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.pow
 
 val logger = KotlinLogging.logger {}
 
 /**
  * 바운딩 박스의 축 길이를 기반으로 하는 분할 전략
- * 
+ *
  * 특징:
  * 1. x축과 y축의 길이를 개별적으로 평가
  * 2. 노드의 depth에 따라 다른 임계값 적용
@@ -77,7 +76,7 @@ class SizeBasedSplitStrategy : NodeSplitStrategy {
 
     private fun getEntries(node: RTreeNode): List<Entry> {
         return when (node) {
-            is RTreeLeafNode -> node.polygons.map { Entry(it.envelopeInternal, it) }
+            is RTreeLeafNode -> node.geometries.map { Entry(it.envelopeInternal, it) }
             is RTreeInternalNode -> node.children.map { Entry(it.boundingBox, it) }
             else -> throw IllegalArgumentException("Unknown node type")
         }
@@ -97,10 +96,10 @@ class SizeBasedSplitStrategy : NodeSplitStrategy {
         for (i in MIN_ENTRIES_PER_NODE until entries.size - MIN_ENTRIES_PER_NODE) {
             val group1 = entries.take(i)
             val group2 = entries.drop(i)
-            
+
             val mbr1 = calculateMBR(group1)
             val mbr2 = calculateMBR(group2)
-            
+
             // 분할 후 두 그룹의 해당 축 길이 차이 계산
             val axisDiff = if (isWide) {
                 kotlin.math.abs(mbr1.width - mbr2.width)
@@ -130,6 +129,7 @@ class SizeBasedSplitStrategy : NodeSplitStrategy {
                 }
                 Pair(left, right)
             }
+
             is RTreeInternalNode -> {
                 val left = RTreeInternalNode(group1.map { it.item as RTreeNode }.toMutableList()).apply {
                     depth = node.depth
@@ -141,15 +141,17 @@ class SizeBasedSplitStrategy : NodeSplitStrategy {
                 }
                 Pair(left, right)
             }
+
             else -> throw IllegalArgumentException("Unknown node type")
         }
     }
 
     private data class Entry(val envelope: Envelope, val item: Any) {
-        val centre get() = Point2D(
-            (envelope.minX + envelope.maxX) / 2,
-            (envelope.minY + envelope.maxY) / 2
-        )
+        val centre
+            get() = Point2D(
+                (envelope.minX + envelope.maxX) / 2,
+                (envelope.minY + envelope.maxY) / 2
+            )
     }
 
     private data class Point2D(val x: Double, val y: Double)

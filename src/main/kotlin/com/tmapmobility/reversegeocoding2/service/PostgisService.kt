@@ -7,13 +7,19 @@ import org.locationtech.jts.geom.Coordinate
 import org.springframework.stereotype.Service
 
 @Service
-class PostgisService(private val jijukRepository: JijukRepository): SearchService {
+class PostgisService(
+    private val jijukRepository: JijukRepository
+) : SearchService {
 
     override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
         val point = geometryFactory.createPoint(Coordinate(lat, lon))
-
         return jijukRepository.findSmallestPolygonContainingPoint(point)
             ?.let { SearchResponse.of(it) }
-            ?: SearchResponse(null)
+            ?: SearchResponse()
+    }
+
+    override fun getTreeVisualizationData(): NodeData? {
+        // PostGIS는 트리 시각화를 지원하지 않음
+        return null
     }
 }

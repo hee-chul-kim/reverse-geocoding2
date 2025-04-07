@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Gradient for sphere -->
+        <linearGradient id="sphereGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e0e0e0;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#b0b0b0;stop-opacity:1" />
+        </linearGradient>
+        <!-- Arrow marker -->
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+        </marker>
+    </defs>
+    
+    <!-- Background -->
+    <rect width="800" height="400" fill="#ffffff"/>
+    
+    <!-- Left section: Cube projection -->
+    <g transform="translate(50,50)">
+        <!-- Cube -->
+        <g transform="translate(0,100)">
+            <path d="M0,0 L60,30 L60,90 L0,60 Z" fill="#e6f3ff" stroke="#2196F3" stroke-width="2"/>
+            <path d="M60,30 L120,0 L120,60 L60,90 Z" fill="#bbdefb" stroke="#2196F3" stroke-width="2"/>
+            <path d="M0,0 L60,-30 L120,0 L60,30 Z" fill="#90caf9" stroke="#2196F3" stroke-width="2"/>
+        </g>
+        
+        <!-- Projection arrow -->
+        <line x1="150" y1="100" x2="220" y2="100" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+        
+        <!-- Sphere -->
+        <circle cx="300" cy="100" r="80" fill="url(#sphereGradient)" stroke="#2196F3" stroke-width="2"/>
+        
+        <!-- Projected faces on sphere -->
+        <path d="M300,100 L260,60 L340,60 Z" fill="none" stroke="#1565C0" stroke-width="1.5" stroke-dasharray="4"/>
+        <path d="M300,100 L260,140 L340,140 Z" fill="none" stroke="#1565C0" stroke-width="1.5" stroke-dasharray="4"/>
+    </g>
+    
+    <!-- Right section: Cell hierarchy -->
+    <g transform="translate(450,50)">
+        <!-- Level 0 cell -->
+        <rect x="0" y="0" width="120" height="120" fill="none" stroke="#2196F3" stroke-width="2"/>
+        
+        <!-- Level 1 cells -->
+        <g stroke="#1976D2" stroke-width="1.5">
+            <line x1="60" y1="0" x2="60" y2="120"/>
+            <line x1="0" y1="60" x2="120" y2="60"/>
+        </g>
+        
+        <!-- Level 2 cells -->
+        <g stroke="#1565C0" stroke-width="1" stroke-dasharray="3">
+            <line x1="30" y1="0" x2="30" y2="120"/>
+            <line x1="90" y1="0" x2="90" y2="120"/>
+            <line x1="0" y1="30" x2="120" y2="30"/>
+            <line x1="0" y1="90" x2="120" y2="90"/>
+        </g>
+        
+        <!-- Hilbert curve -->
+        <path d="M15,15 L15,45 L45,45 L45,15 L75,15 L75,45 L105,45 L105,75 L75,75 L75,105 L45,105 L45,75 L15,75 L15,105" 
+              fill="none" stroke="#FFA000" stroke-width="2"/>
+        
+        <!-- Cell IDs -->
+        <g font-family="monospace" font-size="10" fill="#333">
+            <text x="10" y="25">0/</text>
+            <text x="70" y="25">1/</text>
+            <text x="10" y="85">2/</text>
+            <text x="70" y="85">3/</text>
+        </g>
+    </g>
+    
+    <!-- Labels -->
+    <g font-family="Arial" font-size="12" fill="#333">
+        <text x="50" y="30">Cube Projection</text>
+        <text x="450" y="30">Cell Hierarchy &amp; Space-filling Curve</text>
+        <text x="450" y="190">Cell ID Format: face.pos.level</text>
+    </g>
+    
+    <!-- Legend -->
+    <g transform="translate(50,300)">
+        <rect x="0" y="0" width="15" height="15" fill="none" stroke="#2196F3" stroke-width="2"/>
+        <text x="25" y="12" font-family="Arial" font-size="12">Level 0</text>
+        
+        <rect x="100" y="0" width="15" height="15" fill="none" stroke="#1976D2" stroke-width="1.5"/>
+        <text x="125" y="12" font-family="Arial" font-size="12">Level 1</text>
+        
+        <rect x="200" y="0" width="15" height="15" fill="none" stroke="#1565C0" stroke-width="1" stroke-dasharray="3"/>
+        <text x="225" y="12" font-family="Arial" font-size="12">Level 2</text>
+        
+        <path d="M300,7 L330,7" stroke="#FFA000" stroke-width="2" fill="none"/>
+        <text x="340" y="12" font-family="Arial" font-size="12">Hilbert Curve</text>
+    </g>
+</svg>

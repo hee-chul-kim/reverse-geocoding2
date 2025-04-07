@@ -1,14 +1,13 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc
 
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.DefaultNodeSplitStrategy
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.NodeSplitStrategy
+import com.tmapmobility.reversegeocoding2.util.plus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.MultiPolygon
 import org.locationtech.jts.index.ItemVisitor
 import org.locationtech.jts.index.SpatialIndex
-import com.tmapmobility.reversegeocoding2.util.*
-import org.locationtech.jts.geom.Geometry
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.DefaultNodeSplitStrategy
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.split.NodeSplitStrategy
 
 val logger = KotlinLogging.logger {}
 
@@ -29,8 +28,9 @@ class RTree(
 
         when (node) {
             is RTreeLeafNode -> {
-                result.addAll(node.polygons.filter { it.envelopeInternal.intersects(range) })
+                result.addAll(node.geometries.filter { it.envelopeInternal.intersects(range) })
             }
+
             is RTreeInternalNode -> {
                 node.children.forEach { search(it, range, result) }
             }
@@ -46,14 +46,14 @@ class RTree(
             }
         } else {
             val leaf = findLeafNode(root!!, polygon)
-            leaf.polygons.add(polygon)
+            leaf.geometries.add(polygon)
             // 리프 노드의 boundingBox 재계산
-            leaf.boundingBox = RTreeLeafNode.computeBoundingBox(leaf.polygons)
+            leaf.boundingBox = RTreeLeafNode.computeBoundingBox(leaf.geometries)
             // 부모 노드들의 boundingBox도 재계산
             updateParentBoundingBoxes(leaf)
 
             // 분할이 필요한지 체크
-            if (leaf.polygons.size > nodeCapacity && splitStrategy.needsSplit(leaf)) {
+            if (leaf.geometries.size > nodeCapacity && splitStrategy.needsSplit(leaf)) {
                 splitNode(leaf)
             }
         }
@@ -66,6 +66,7 @@ class RTree(
                 val bestFit = bestFit(node.children, polygon)
                 findLeafNode(bestFit, polygon)
             }
+
             else -> throw IllegalStateException("Unknown node type")
         }
     }
@@ -87,11 +88,11 @@ class RTree(
 
         // 새로 생성된 노드들의 바운딩 박스 업데이트
         when (left) {
-            is RTreeLeafNode -> left.boundingBox = RTreeLeafNode.computeBoundingBox(left.polygons)
+            is RTreeLeafNode -> left.boundingBox = RTreeLeafNode.computeBoundingBox(left.geometries)
             is RTreeInternalNode -> left.boundingBox = RTreeInternalNode.computeBoundingBox(left.children)
         }
         when (right) {
-            is RTreeLeafNode -> right.boundingBox = RTreeLeafNode.computeBoundingBox(right.polygons)
+            is RTreeLeafNode -> right.boundingBox = RTreeLeafNode.computeBoundingBox(right.geometries)
             is RTreeInternalNode -> right.boundingBox = RTreeInternalNode.computeBoundingBox(right.children)
         }
 
@@ -155,6 +156,7 @@ class RTree(
                 val totalNodes = childStats.sumOf { it.second } + 1
                 Pair(maxChildDepth, totalNodes)
             }
+
             else -> {
                 throw IllegalStateException("Unknown node type")
             }

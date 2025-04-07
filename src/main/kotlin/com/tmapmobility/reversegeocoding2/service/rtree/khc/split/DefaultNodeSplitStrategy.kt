@@ -1,20 +1,20 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc.split
 
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
-import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
+import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
 /**
  * 기본 노드 분할 전략 구현
- * 
+ *
  * 현재 구현은 다음과 같은 방식으로 노드를 분할:
  * 1. 노드의 모든 자식 요소들의 MBR(Minimum Bounding Rectangle)을 계산
  * 2. 가장 멀리 떨어진 두 개의 MBR을 선택
  * 3. 각 자식 요소를 선택된 두 MBR 중 더 가까운 쪽에 할당
- * 
+ *
  * 이 전략은 단순하지만 최적의 분할을 보장하지는 않음
  * 향후 Quadratic Split이나 Linear Split과 같은 더 효율적인 전략으로 대체 가능
  */
@@ -22,7 +22,7 @@ class DefaultNodeSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
         // 노드 타입에 따라 자식 요소 추출
         val children = when (node) {
-            is RTreeLeafNode -> node.polygons.toMutableList()
+            is RTreeLeafNode -> node.geometries.toMutableList()
             is RTreeInternalNode -> node.children.toMutableList()
             else -> throw IllegalArgumentException("Unknown node type")
         }
@@ -91,7 +91,7 @@ class DefaultNodeSplitStrategy : NodeSplitStrategy {
 
     /**
      * 주어진 MBR 리스트에서 가장 멀리 떨어진 두 개의 MBR을 찾음
-     * 
+     *
      * @param boundingBoxes MBR 리스트
      * @return 가장 멀리 떨어진 두 개의 MBR 쌍
      */
@@ -119,7 +119,7 @@ class DefaultNodeSplitStrategy : NodeSplitStrategy {
 
     /**
      * 두 MBR 사이의 거리의 제곱을 계산
-     * 
+     *
      * @param box1 첫 번째 MBR
      * @param box2 두 번째 MBR
      * @return 두 MBR의 중심점 사이 거리의 제곱

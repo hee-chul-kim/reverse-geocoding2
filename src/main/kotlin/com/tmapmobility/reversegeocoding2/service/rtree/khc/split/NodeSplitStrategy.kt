@@ -4,8 +4,6 @@ import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTree
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeLeafNode
 import com.tmapmobility.reversegeocoding2.service.rtree.khc.RTreeInternalNode
-import org.locationtech.jts.geom.Envelope
-import org.locationtech.jts.geom.Geometry
 
 /**
  * RTree 노드 분할 전략을 정의하는 인터페이스
@@ -35,7 +33,7 @@ interface NodeSplitStrategy {
      */
     fun needsSplit(node: RTreeNode): Boolean {
         val size = when (node) {
-            is RTreeLeafNode -> node.polygons.size
+            is RTreeLeafNode -> node.geometries.size
             is RTreeInternalNode -> node.children.size
             else -> 0
         }

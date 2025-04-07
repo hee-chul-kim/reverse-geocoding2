@@ -1,8 +1,8 @@
 package com.tmapmobility.reversegeocoding2.service.rtree.khc
 
+import com.tmapmobility.reversegeocoding2.util.plus
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
-import com.tmapmobility.reversegeocoding2.util.*
 
 abstract class RTreeNode {
     abstract var boundingBox: Envelope
@@ -17,9 +17,9 @@ abstract class RTreeNode {
 }
 
 class RTreeLeafNode(
-    var polygons: MutableList<Geometry>
+    var geometries: MutableList<Geometry>
 ) : RTreeNode() {
-    override var boundingBox: Envelope = computeBoundingBox(polygons)
+    override var boundingBox: Envelope = computeBoundingBox(geometries)
     override var depth: Int = 0
     override var parent: RTreeInternalNode? = null
 
@@ -44,7 +44,7 @@ class RTreeLeafNode(
     }
 
     private fun addPolygon(polygon: Geometry) {
-        polygons.add(polygon)
+        geometries.add(polygon)
         boundingBox += polygon.envelopeInternal
     }
 }

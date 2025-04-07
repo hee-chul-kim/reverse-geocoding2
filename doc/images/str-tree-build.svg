@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style type="text/css">
+            .point {
+                r: 5;
+                fill: #f44336;
+            }
+            .slice {
+                fill: none;
+                stroke: #2196F3;
+                stroke-width: 2;
+            }
+            .group {
+                fill: none;
+                stroke: #4CAF50;
+                stroke-width: 2;
+                fill-opacity: 0.1;
+                fill: #4CAF50;
+            }
+            .label {
+                font-family: Arial;
+                font-size: 12px;
+                fill: #333;
+            }
+            .step-label {
+                font-family: Arial;
+                font-size: 14px;
+                font-weight: bold;
+                fill: #333;
+            }
+            .legend-label {
+                font-family: Arial;
+                font-size: 12px;
+                fill: #666;
+            }
+        </style>
+    </defs>
+
+    <!-- Background -->
+    <rect width="800" height="800" fill="#ffffff"/>
+    
+    <!-- Title -->
+    <text x="400" y="30" class="step-label" text-anchor="middle">STR-Tree 생성 과정</text>
+
+    <!-- Step 1: Initial Points -->
+    <g transform="translate(0, 0)">
+        <!-- Grid -->
+        <g stroke="#e0e0e0" stroke-width="1">
+            <line x1="50" y1="50" x2="750" y2="50"/>
+            <line x1="50" y1="100" x2="750" y2="100"/>
+            <line x1="50" y1="150" x2="750" y2="150"/>
+            <line x1="50" y1="200" x2="750" y2="200"/>
+            <line x1="150" y1="50" x2="150" y2="200"/>
+            <line x1="300" y1="50" x2="300" y2="200"/>
+            <line x1="450" y1="50" x2="450" y2="200"/>
+            <line x1="600" y1="50" x2="600" y2="200"/>
+        </g>
+
+        <text x="50" y="35" class="step-label">1. 초기 포인트 분포</text>
+        <!-- Points -->
+        <circle class="point" cx="180" cy="70"/>
+        <circle class="point" cx="200" cy="90"/>
+        <circle class="point" cx="280" cy="130"/>
+        <circle class="point" cx="350" cy="120"/>
+        <circle class="point" cx="420" cy="110"/>
+        <circle class="point" cx="550" cy="130"/>
+        <circle class="point" cx="600" cy="80"/>
+    </g>
+
+    <!-- Step 2: X-axis Sorting -->
+    <g transform="translate(0, 250)">
+        <!-- Grid -->
+        <g stroke="#e0e0e0" stroke-width="1">
+            <line x1="50" y1="50" x2="750" y2="50"/>
+            <line x1="50" y1="100" x2="750" y2="100"/>
+            <line x1="50" y1="150" x2="750" y2="150"/>
+            <line x1="50" y1="200" x2="750" y2="200"/>
+            <line x1="150" y1="50" x2="150" y2="200"/>
+            <line x1="300" y1="50" x2="300" y2="200"/>
+            <line x1="450" y1="50" x2="450" y2="200"/>
+            <line x1="600" y1="50" x2="600" y2="200"/>
+        </g>
+
+        <text x="50" y="35" class="step-label">2. X축 기준 정렬 및 분할</text>
+        <!-- Points -->
+        <circle class="point" cx="180" cy="70"/>
+        <circle class="point" cx="200" cy="90"/>
+        <circle class="point" cx="280" cy="130"/>
+        <circle class="point" cx="350" cy="120"/>
+        <circle class="point" cx="420" cy="110"/>
+        <circle class="point" cx="550" cy="130"/>
+        <circle class="point" cx="600" cy="80"/>
+        
+        <!-- Vertical slice lines -->
+        <line class="slice" x1="300" y1="50" x2="300" y2="200"/>
+        <line class="slice" x1="500" y1="50" x2="500" y2="200"/>
+        
+        <!-- Slice labels -->
+        <text x="220" y="40" class="label">Slice 1</text>
+        <text x="400" y="40" class="label">Slice 2</text>
+        <text x="600" y="40" class="label">Slice 3</text>
+    </g>
+
+    <!-- Step 3: Y-axis Sorting -->
+    <g transform="translate(0, 500)">
+        <!-- Grid -->
+        <g stroke="#e0e0e0" stroke-width="1">
+            <line x1="50" y1="50" x2="750" y2="50"/>
+            <line x1="50" y1="100" x2="750" y2="100"/>
+            <line x1="50" y1="150" x2="750" y2="150"/>
+            <line x1="50" y1="200" x2="750" y2="200"/>
+            <line x1="150" y1="50" x2="150" y2="200"/>
+            <line x1="300" y1="50" x2="300" y2="200"/>
+            <line x1="450" y1="50" x2="450" y2="200"/>
+            <line x1="600" y1="50" x2="600" y2="200"/>
+        </g>
+
+        <text x="50" y="35" class="step-label">3. Y축 정렬 및 그룹화</text>
+        <!-- Points -->
+        <circle class="point" cx="180" cy="70"/>
+        <circle class="point" cx="200" cy="90"/>
+        <circle class="point" cx="280" cy="130"/>
+        <circle class="point" cx="350" cy="120"/>
+        <circle class="point" cx="420" cy="110"/>
+        <circle class="point" cx="550" cy="130"/>
+        <circle class="point" cx="600" cy="80"/>
+        
+        <!-- Vertical slice lines -->
+        <line class="slice" x1="300" y1="50" x2="300" y2="200"/>
+        <line class="slice" x1="500" y1="50" x2="500" y2="200"/>
+        
+        <!-- Groups -->
+        <!-- Slice 1 groups -->
+        <rect class="group" x="160" y="60" width="130" height="40"/>  <!-- 상단 2개 포인트 -->
+        <rect class="group" x="160" y="120" width="130" height="20"/> <!-- 하단 1개 포인트 -->
+        
+        <!-- Slice 2 groups -->
+        <rect class="group" x="310" y="100" width="180" height="50"/>  <!-- 모든 포인트 -->
+        
+        <!-- Slice 3 groups -->
+        <rect class="group" x="510" y="70" width="110" height="20"/>   <!-- 상단 1개 포인트 -->
+        <rect class="group" x="510" y="120" width="110" height="20"/>  <!-- 하단 1개 포인트 -->
+        
+        <!-- Slice labels -->
+        <text x="220" y="40" class="label">Slice 1</text>
+        <text x="400" y="40" class="label">Slice 2</text>
+        <text x="600" y="40" class="label">Slice 3</text>
+    </g>
+
+    <!-- Legend -->
+    <g transform="translate(650, 700)">
+        <circle cx="10" cy="15" r="5" fill="#f44336"/>
+        <text x="25" y="20" class="legend-label">데이터 포인트</text>
+        
+        <line x1="5" y1="40" x2="35" y2="40" class="slice"/>
+        <text x="45" y="45" class="legend-label">X축 분할</text>
+        
+        <rect x="5" y="60" width="30" height="20" class="group"/>
+        <text x="45" y="75" class="legend-label">Y축 그룹</text>
+    </g>
+</svg>
