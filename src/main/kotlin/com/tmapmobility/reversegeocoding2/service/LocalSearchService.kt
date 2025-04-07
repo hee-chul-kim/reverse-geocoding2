@@ -10,7 +10,7 @@ interface LocalSearchService : SearchService {
 
     fun getVisualizationData(): NodeData?
 
-    fun createSpatialIndex()
+    //fun createSpatialIndex()
 
     override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
         val point = geometryFactory.createPoint(Coordinate(lat, lon))

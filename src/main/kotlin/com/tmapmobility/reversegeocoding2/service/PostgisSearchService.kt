@@ -7,7 +7,7 @@ import org.locationtech.jts.geom.Coordinate
 import org.springframework.stereotype.Service
 
 @Service
-class PostgisLocalSearchService(
+class PostgisSearchService(
     private val jijukRepository: JijukRepository
 ) : SearchService {
 

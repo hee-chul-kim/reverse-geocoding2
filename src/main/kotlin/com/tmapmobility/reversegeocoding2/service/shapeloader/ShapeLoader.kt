@@ -1,5 +1,7 @@
-package com.tmapmobility.reversegeocoding2.service
+package com.tmapmobility.reversegeocoding2.service.shapeloader
 
+import com.tmapmobility.reversegeocoding2.service.strtree.logger
+import jakarta.annotation.PostConstruct
 import org.geotools.api.data.FileDataStore
 import org.geotools.api.data.FileDataStoreFinder
 import org.geotools.api.data.SimpleFeatureSource
@@ -23,6 +25,7 @@ class ShapeLoader(
     // 로드 결과
     val geometries = mutableListOf<Geometry>()
 
+    @PostConstruct
     fun load() {
         initFileDataStore()
         createSpatialIndex()
@@ -49,8 +52,6 @@ class ShapeLoader(
 
         try {
             var cnt = 0L
-            var batchStartTime = System.currentTimeMillis()
-            var batchCnt = 0L
 
             val loadingTime = measureTimeMillis {
                 source.features.features().use { features ->
@@ -65,24 +66,6 @@ class ShapeLoader(
                             geometry.userData = dbfRecord
                             geometries.add(geometry)
                             cnt++
-                            batchCnt++
-
-                            // 100000개마다 배치 처리 시간 로깅
-                            if (batchCnt == 100000L) {
-                                val batchEndTime = System.currentTimeMillis()
-                                val batchDuration = batchEndTime - batchStartTime
-                                logger.info {
-                                    """
-                                    데이터 로딩 배치 처리 완료
-                                    - 현재까지 처리된 다각형 수: $cnt
-                                    - 배치 처리 시간: ${batchDuration}ms
-                                    - 평균 처리 속도: ${100000.0 / batchDuration * 1000} polygons/sec
-                                """.trimIndent()
-                                }
-
-                                batchCnt = 0L
-                                batchStartTime = System.currentTimeMillis()
-                            }
                         }
                     }
                 }
