@@ -52,4 +52,5 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    maxHeapSize = "2g" // 힙 메모리 크기를 2GB로 설정
 }

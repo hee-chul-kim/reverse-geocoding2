@@ -1,7 +1,7 @@
 package com.tmapmobility.reversegeocoding2.service.rtree
 
-import com.tmapmobility.reversegeocoding2.service.MBRData
-import com.tmapmobility.reversegeocoding2.service.NodeData
+import com.tmapmobility.reversegeocoding2.model.NodeData
+import com.tmapmobility.reversegeocoding2.model.toMbrData
 import com.tmapmobility.reversegeocoding2.util.computeBoundingBox
 import com.tmapmobility.reversegeocoding2.util.plus
 import org.locationtech.jts.geom.Envelope
@@ -89,7 +89,7 @@ sealed class RTreeNode {
             is InternalNode -> NodeData(
                 id = id,
                 isLeaf = false,
-                mbr = convertToMBRData(envelope),
+                mbr = envelope.toMbrData(),
                 children = children.map { it.convertToNodeData() },
                 depth = depth,
                 size = children.size
@@ -98,21 +98,12 @@ sealed class RTreeNode {
             is LeafNode -> NodeData(
                 id = id,
                 isLeaf = true,
-                mbr = convertToMBRData(envelope),
+                mbr = envelope.toMbrData(),
                 children = emptyList(),
                 depth = depth,
                 size = geometries.size
             )
         }
-    }
-
-    private fun convertToMBRData(envelope: Envelope): MBRData {
-        return MBRData(
-            minX = envelope.minX,
-            minY = envelope.minY,
-            maxX = envelope.maxX,
-            maxY = envelope.maxY
-        )
     }
 }
 

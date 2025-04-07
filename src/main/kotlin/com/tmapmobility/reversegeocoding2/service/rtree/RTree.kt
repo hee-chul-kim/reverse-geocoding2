@@ -9,7 +9,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 
-val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 class RTree(
     private val nodeCapacity: Int = 10,

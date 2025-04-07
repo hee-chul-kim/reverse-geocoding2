@@ -1,6 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.shapeloader
 
-import com.tmapmobility.reversegeocoding2.service.strtree.logger
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.geotools.api.data.FileDataStore
 import org.geotools.api.data.FileDataStoreFinder
@@ -15,6 +15,8 @@ import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import java.nio.charset.Charset
 import kotlin.system.measureTimeMillis
+
+private val logger = KotlinLogging.logger {}
 
 @Component
 class ShapeLoader(

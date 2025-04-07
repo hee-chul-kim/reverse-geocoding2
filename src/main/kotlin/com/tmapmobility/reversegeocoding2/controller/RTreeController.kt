@@ -1,6 +1,6 @@
 package com.tmapmobility.reversegeocoding2.controller
 
-import com.tmapmobility.reversegeocoding2.service.JtsSearchService
+import com.tmapmobility.reversegeocoding2.service.jts.JtsSearchService
 import com.tmapmobility.reversegeocoding2.service.rtree.RtreeSearchService
 import com.tmapmobility.reversegeocoding2.service.strtree.STRtreeSearchService
 import org.springframework.stereotype.Controller

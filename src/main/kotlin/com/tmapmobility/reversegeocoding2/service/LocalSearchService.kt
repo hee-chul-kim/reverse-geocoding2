@@ -1,6 +1,7 @@
 package com.tmapmobility.reversegeocoding2.service
 
 import com.tmapmobility.reversegeocoding2.geometryFactory
+import com.tmapmobility.reversegeocoding2.model.NodeData
 import com.tmapmobility.reversegeocoding2.model.SearchResponse
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.MultiPolygon
@@ -10,15 +11,15 @@ interface LocalSearchService : SearchService {
 
     fun getVisualizationData(): NodeData?
 
-    //fun createSpatialIndex()
-
     override fun searchByPoint(lat: Double, lon: Double): SearchResponse {
         val point = geometryFactory.createPoint(Coordinate(lat, lon))
+        // 1. MBR 로 검색
         val candidates = spatialDataModel.query(point.envelopeInternal)
+        // 2. Polygon 내 포함 여부 확인
         val polygons = candidates.filterIsInstance<MultiPolygon>()
         val polygon = polygons.firstOrNull { it.contains(point) }
+        // 3. UserData 추출
         val userData = polygon?.userData as? Array<*>
-
         return SearchResponse(
             dwid = userData?.get(0) as? Int?,
             jibun = userData?.get(1) as? String?,
@@ -33,19 +34,3 @@ interface LocalSearchService : SearchService {
         )
     }
 }
-
-data class NodeData(
-    val id: String,
-    val isLeaf: Boolean,
-    val mbr: MBRData,
-    val children: List<NodeData>,
-    val depth: Int,
-    val size: Int
-)
-
-data class MBRData(
-    val minX: Double,
-    val minY: Double,
-    val maxX: Double,
-    val maxY: Double
-)

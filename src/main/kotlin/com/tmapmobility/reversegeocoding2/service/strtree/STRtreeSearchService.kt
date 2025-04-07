@@ -1,7 +1,7 @@
 package com.tmapmobility.reversegeocoding2.service.strtree
 
+import com.tmapmobility.reversegeocoding2.model.NodeData
 import com.tmapmobility.reversegeocoding2.service.LocalSearchService
-import com.tmapmobility.reversegeocoding2.service.NodeData
 import com.tmapmobility.reversegeocoding2.service.shapeloader.ShapeLoader
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
 import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
 
-val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 @DependsOn("shapeLoader")
 @Service

@@ -13,8 +13,6 @@ import org.locationtech.jts.geom.Geometry
  * 2. 분산이 가장 큰 차원을 선택
  * 3. 선택된 차원에서 가장 멀리 떨어진 두 MBR을 시드로 선택
  * 4. 나머지 요소들을 시드와의 거리에 따라 두 그룹으로 분할
- *
- * 시간 복잡도: O(n)
  */
 class LinearSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {

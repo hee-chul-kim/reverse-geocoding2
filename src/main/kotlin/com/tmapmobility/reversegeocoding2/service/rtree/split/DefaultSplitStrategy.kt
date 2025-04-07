@@ -12,9 +12,6 @@ import org.locationtech.jts.geom.Geometry
  * 1. 노드의 모든 자식 요소들의 MBR(Minimum Bounding Rectangle)을 계산
  * 2. 가장 멀리 떨어진 두 개의 MBR을 선택
  * 3. 각 자식 요소를 선택된 두 MBR 중 더 가까운 쪽에 할당
- *
- * 이 전략은 단순하지만 최적의 분할을 보장하지는 않음
- * 향후 Quadratic Split이나 Linear Split과 같은 더 효율적인 전략으로 대체 가능
  */
 class DefaultSplitStrategy : NodeSplitStrategy {
     override fun split(node: RTreeNode, tree: RTree): Pair<RTreeNode, RTreeNode> {
