@@ -7,12 +7,12 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 
 @Controller
-@RequestMapping("/api/v1/khc-strtree")
+@RequestMapping("/strtree")
 class KhcSTRtreeMbrController(private val searchService: SearchService) {
 
     @GetMapping("/mbr")
     fun showSTRTreeMbr(model: Model): String {
-        model.addAttribute("treeData", searchService.getTreeVisualizationData())
+        model.addAttribute("treeData", searchService.getVisualizationData())
         return "strtree-mbr"
     }
 } 

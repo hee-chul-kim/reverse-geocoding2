@@ -1,5 +1,6 @@
 package com.tmapmobility.reversegeocoding2.service.strtree
 
+import com.tmapmobility.reversegeocoding2.service.SpatialDataModel
 import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.Geometry
 import java.util.*
@@ -12,8 +13,9 @@ import kotlin.math.ceil
  */
 class KhcSTRtree(
     private val nodeCapacity: Int = DEFAULT_NODE_CAPACITY
-) {
-    private var root: STRNode? = null
+) : SpatialDataModel {
+    var root: STRNode? = null
+        private set
     private val items = mutableListOf<Geometry>()
     private var isBuilt = false
 
@@ -25,9 +27,18 @@ class KhcSTRtree(
      * 아이템을 트리에 삽입
      * 실제 트리 구성은 build() 호출 시점까지 지연됨
      */
-    fun insert(item: Geometry) {
+    override fun insert(geometry: Geometry) {
         require(!isBuilt) { "트리가 이미 구축되어 있어 새로운 아이템을 삽입할 수 없습니다." }
-        items.add(item)
+        items.add(geometry)
+    }
+
+    /**
+     * 여러 아이템을 트리에 삽입
+     * 실제 트리 구성은 build() 호출 시점까지 지연됨
+     */
+    fun insert(items: List<Geometry>) {
+        require(!isBuilt) { "트리가 이미 구축되어 있어 새로운 아이템을 삽입할 수 없습니다." }
+        this.items.addAll(items)
     }
 
     /**
@@ -138,7 +149,7 @@ class KhcSTRtree(
     /**
      * 주어진 영역과 겹치는 모든 아이템을 검색
      */
-    fun query(searchEnv: Envelope): List<Geometry> {
+    override fun query(searchEnv: Envelope): List<Geometry> {
         if (!isBuilt) build()
 
         val result = mutableListOf<Geometry>()
@@ -267,14 +278,6 @@ class KhcSTRtree(
 
         // 거리순으로 정렬된 결과 반환
         return result.map { it.second }.reversed()
-    }
-
-    /**
-     * 트리의 루트 노드를 반환
-     */
-    fun getRoot(): STRNode? {
-        if (!isBuilt) build()
-        return root
     }
 }
 

@@ -1,29 +1,30 @@
 package com.tmapmobility.reversegeocoding2.service.rtree
 
+import com.tmapmobility.reversegeocoding2.service.SpatialDataModel
 import com.tmapmobility.reversegeocoding2.service.rtree.split.DefaultSplitStrategy
 import com.tmapmobility.reversegeocoding2.service.rtree.split.NodeSplitStrategy
 import com.tmapmobility.reversegeocoding2.util.plus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.locationtech.jts.geom.Envelope
-import org.locationtech.jts.geom.MultiPolygon
-import org.locationtech.jts.index.ItemVisitor
-import org.locationtech.jts.index.SpatialIndex
+import org.locationtech.jts.geom.Geometry
 
 val logger = KotlinLogging.logger {}
 
 class RTree(
     private val nodeCapacity: Int = 10,
     private val splitStrategy: NodeSplitStrategy = DefaultSplitStrategy()
-) : SpatialIndex {
-    var root: RTreeNode? = null
+) : SpatialDataModel {
 
-    override fun query(range: Envelope): MutableList<Any?> {
-        val result = mutableListOf<Any?>()
+    var root: RTreeNode? = null
+        private set
+
+    override fun query(range: Envelope): List<Geometry> {
+        val result = mutableListOf<Geometry>()
         root?.let { search(it, range, result) }
         return result
     }
 
-    private fun search(node: RTreeNode, range: Envelope, result: MutableList<Any?>) {
+    private fun search(node: RTreeNode, range: Envelope, result: MutableList<Geometry>) {
         if (!node.envelope.intersects(range)) return
 
         when (node) {
@@ -37,16 +38,14 @@ class RTree(
         }
     }
 
-    override fun insert(itemEnv: Envelope?, item: Any?) {
-        val polygon: MultiPolygon = item as MultiPolygon
-
+    override fun insert(geometry: Geometry) {
         if (root == null) {
-            root = RTreeLeafNode(mutableListOf(polygon)).apply {
+            root = RTreeLeafNode(mutableListOf(geometry)).apply {
                 depth = 0  // root의 depth는 0
             }
         } else {
-            val leaf = findLeafNode(root!!, polygon)
-            leaf.geometries.add(polygon)
+            val leaf = findLeafNode(root!!, geometry)
+            leaf.geometries.add(geometry)
             // 리프 노드의 boundingBox 재계산
             leaf.envelope = RTreeLeafNode.computeBoundingBox(leaf.geometries)
             // 부모 노드들의 boundingBox도 재계산
@@ -59,23 +58,23 @@ class RTree(
         }
     }
 
-    private fun findLeafNode(node: RTreeNode, polygon: MultiPolygon): RTreeLeafNode {
+    private fun findLeafNode(node: RTreeNode, geometry: Geometry): RTreeLeafNode {
         return when (node) {
             is RTreeLeafNode -> node
             is RTreeInternalNode -> {
-                val bestFit = bestFit(node.children, polygon)
-                findLeafNode(bestFit, polygon)
+                val bestFit = bestFit(node.children, geometry)
+                findLeafNode(bestFit, geometry)
             }
 
             else -> throw IllegalStateException("Unknown node type")
         }
     }
 
-    private fun bestFit(children: MutableList<RTreeNode>, polygon: MultiPolygon): RTreeNode {
+    private fun bestFit(children: MutableList<RTreeNode>, geometry: Geometry): RTreeNode {
         var minBoxNode: RTreeNode = children.first()
         var minBox: Envelope = minBoxNode.envelope
         for (child in children) {
-            if ((child.envelope + polygon.envelopeInternal).area < minBox.area) {
+            if ((child.envelope + geometry.envelopeInternal).area < minBox.area) {
                 minBoxNode = child
                 minBox = child.envelope
             }
@@ -130,14 +129,6 @@ class RTree(
             current.envelope = RTreeInternalNode.computeBoundingBox(current.children)
             current = current.parent
         }
-    }
-
-    override fun query(searchEnv: Envelope?, visitor: ItemVisitor?) {
-        TODO("Not yet implemented")
-    }
-
-    override fun remove(itemEnv: Envelope?, item: Any?): Boolean {
-        TODO("Not yet implemented")
     }
 
     fun logTreeStats() {
